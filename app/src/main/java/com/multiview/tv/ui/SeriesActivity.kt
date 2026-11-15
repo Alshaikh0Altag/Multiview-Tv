@@ -48,7 +48,7 @@ class SeriesActivity : BaseActivity() {
         findViewById<TextView>(R.id.seriesPlot).text = s.plot ?: ""
         s.cover?.let { findViewById<ImageView>(R.id.cover).load(it) }
 
-        seasonAdapter = GroupAdapter { g -> showSeason(g.id.toInt()) }
+        seasonAdapter = GroupAdapter(onFocus = { g -> showSeason(g.id.toInt()) })
         episodeAdapter = EpisodeAdapter { pos -> play(pos) }
         seasons.layoutManager = LinearLayoutManager(this)
         seasons.adapter = seasonAdapter
