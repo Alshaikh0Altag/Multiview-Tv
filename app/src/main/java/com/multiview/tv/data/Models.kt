@@ -72,6 +72,10 @@ data class AccountInfo(
     val active: Boolean,
     val maxConnections: Int,
     val expiresAt: Long?,
+    val activeConnections: Int = 0,
+    val createdAt: Long? = null,
+    val status: String = "",
+    val username: String = "",
 )
 
 /** Saved login. type = "xtream" or "m3u". */

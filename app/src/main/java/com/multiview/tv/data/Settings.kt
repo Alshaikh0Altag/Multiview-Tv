@@ -38,6 +38,31 @@ object Settings {
     fun liveFormat(c: Context) = sp(c).getString("live_fmt", "ts")!!
     fun setLiveFormat(c: Context, v: String) = sp(c).edit().putString("live_fmt", v).apply()
 
+    /** "small" / "normal" / "large" — bigger buffer = fewer pauses, slower start */
+    fun bufferSize(c: Context) = sp(c).getString("buffer", "normal")!!
+    fun setBufferSize(c: Context, v: String) = sp(c).edit().putString("buffer", v).apply()
+
+    /** Custom HTTP User-Agent (some providers require a specific one). Empty = default. */
+    fun userAgent(c: Context) = sp(c).getString("ua", "")!!
+    fun setUserAgent(c: Context, v: String) = sp(c).edit().putString("ua", v).apply()
+
+    /** Subtitle size in percent: 80 / 100 / 130 / 160 */
+    fun subtitleSize(c: Context) = sp(c).getInt("sub_size", 100)
+    fun setSubtitleSize(c: Context, v: Int) = sp(c).edit().putInt("sub_size", v).apply()
+
+    /** Channel order: "number" or "name" */
+    fun channelSort(c: Context) = sp(c).getString("sort", "number")!!
+    fun setChannelSort(c: Context, v: String) = sp(c).edit().putString("sort", v).apply()
+
+    /** Recently watched channel ids, newest first. */
+    fun recentChannels(c: Context): List<String> =
+        sp(c).getString("recent_ch", "")!!.split(',').filter { it.isNotBlank() }
+
+    fun pushRecentChannel(c: Context, id: String) {
+        val list = (listOf(id) + recentChannels(c).filter { it != id }).take(30)
+        sp(c).edit().putString("recent_ch", list.joinToString(",")).apply()
+    }
+
     // Startup
     fun autoplayLast(c: Context) = sp(c).getBoolean("autoplay", false)
     fun setAutoplayLast(c: Context, v: Boolean) = sp(c).edit().putBoolean("autoplay", v).apply()

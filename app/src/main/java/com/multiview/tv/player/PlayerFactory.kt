@@ -30,12 +30,17 @@ object PlayerFactory {
      */
     fun create(context: Context, lowLatency: Boolean = false): ExoPlayer {
         val http = DefaultHttpDataSource.Factory()
-            .setUserAgent(Http.USER_AGENT)
+            .setUserAgent(Http.userAgent)
             .setAllowCrossProtocolRedirects(true)
             .setConnectTimeoutMs(15_000)
             .setReadTimeoutMs(20_000)
 
-        val loadControl = if (lowLatency) {
+        val loadControl = if (!lowLatency && Settings.bufferSize(context) != "normal") {
+            if (Settings.bufferSize(context) == "large")
+                DefaultLoadControl.Builder().setBufferDurationsMs(30_000, 90_000, 3_000, 8_000).build()
+            else
+                DefaultLoadControl.Builder().setBufferDurationsMs(5_000, 20_000, 1_000, 2_000).build()
+        } else if (lowLatency) {
             // Multiview tiles: bigger re-buffer threshold so a short network dip doesn't stutter
             DefaultLoadControl.Builder().setBufferDurationsMs(12_000, 30_000, 3_000, 6_000)
                 .setPrioritizeTimeOverSizeThresholds(true).build()

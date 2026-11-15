@@ -19,6 +19,8 @@ import androidx.media3.common.Tracks
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.ui.AspectRatioFrameLayout
+import androidx.media3.ui.CaptionStyleCompat
+import androidx.media3.ui.SubtitleView
 import androidx.media3.ui.PlayerView
 import com.multiview.tv.R
 import com.multiview.tv.data.Settings
@@ -47,7 +49,10 @@ object PlayerMenu {
         items += activity.getString(R.string.menu_info) to { info(activity, player) }
         items += activity.getString(R.string.menu_external) to { external(activity, url) }
         if (pipSupported(activity)) items += activity.getString(R.string.menu_pip) to { enterPip(activity) }
-        if (activity is BaseActivity) items += activity.getString(R.string.menu_lock) to { activity.lockScreen() }
+        if (activity is BaseActivity) {
+            items += activity.getString(R.string.menu_sleep) to { activity.sleepTimerDialog() }
+            items += activity.getString(R.string.menu_lock) to { activity.lockScreen() }
+        }
 
         AlertDialog.Builder(activity)
             .setItems(items.map { it.first }.toTypedArray()) { _, i -> items[i].second() }
@@ -166,6 +171,15 @@ object PlayerMenu {
     fun applySavedResizeMode(activity: Activity, playerView: PlayerView) {
         val m = Settings.resizeMode(activity)
         if (m in resizeModes) playerView.resizeMode = m
+        // Subtitles: user size, white text with a dark outline (readable on any picture)
+        playerView.subtitleView?.let { sv ->
+            sv.setApplyEmbeddedStyles(false)
+            sv.setStyle(CaptionStyleCompat(
+                android.graphics.Color.WHITE, android.graphics.Color.TRANSPARENT, android.graphics.Color.TRANSPARENT,
+                CaptionStyleCompat.EDGE_TYPE_OUTLINE, android.graphics.Color.BLACK, null,
+            ))
+            sv.setFractionalTextSize(SubtitleView.DEFAULT_TEXT_SIZE_FRACTION * Settings.subtitleSize(activity) / 100f)
+        }
     }
 
     fun info(activity: Activity, player: ExoPlayer) {

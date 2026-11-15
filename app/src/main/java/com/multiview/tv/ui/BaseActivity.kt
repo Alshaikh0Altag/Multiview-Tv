@@ -17,6 +17,8 @@ import android.widget.Toast
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import com.multiview.tv.R
+import com.multiview.tv.data.Http
+import com.multiview.tv.data.Repository
 import com.multiview.tv.data.Settings
 
 /**
@@ -29,16 +31,54 @@ open class BaseActivity : AppCompatActivity() {
     companion object {
         /** Groups unlocked with the PIN during this session. */
         val unlockedGroups = HashSet<String>()
+
+        /** App-wide, so the sleep timer keeps running while you move between screens. */
+        val sleepHandler = Handler(Looper.getMainLooper())
+        private var top: java.lang.ref.WeakReference<BaseActivity>? = null
+        /** Closes the whole app from whichever screen is open when the timer ends. */
+        private val sleepRunnable = Runnable { top?.get()?.finishAffinity() }
     }
 
     private var clock: TextClock? = null
     private var lockBadge: TextView? = null
     private val lockHandler = Handler(Looper.getMainLooper())
+
+
     private val hideLockBadge = Runnable { lockBadge?.visibility = View.GONE }
 
     /** Screen lock: the remote does nothing until OK is held down. */
     var isScreenLocked = false
         private set
+
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+        applyGlobalSettings()
+    }
+
+    /** Settings that other parts of the app read from memory. */
+    protected fun applyGlobalSettings() {
+        Http.userAgent = Settings.userAgent(this).ifBlank { Http.DEFAULT_USER_AGENT }
+        Repository.sortByName = Settings.channelSort(this) == "name"
+        Repository.recentIds = Settings.recentChannels(this)
+    }
+
+    // ---------- sleep timer ----------
+
+
+    fun sleepTimerDialog() {
+        val minutes = intArrayOf(0, 15, 30, 60, 90, 120)
+        val labels = minutes.map { if (it == 0) getString(R.string.off) else getString(R.string.minutes_n, it) }
+        AlertDialog.Builder(this)
+            .setTitle(R.string.menu_sleep)
+            .setItems(labels.toTypedArray()) { _, i ->
+                sleepHandler.removeCallbacks(sleepRunnable)
+                if (minutes[i] > 0) {
+                    sleepHandler.postDelayed(sleepRunnable, minutes[i] * 60_000L)
+                    Toast.makeText(this, getString(R.string.sleep_set, minutes[i]), Toast.LENGTH_LONG).show()
+                }
+            }
+            .show()
+    }
 
     override fun onPostCreate(savedInstanceState: Bundle?) {
         super.onPostCreate(savedInstanceState)
@@ -61,6 +101,7 @@ open class BaseActivity : AppCompatActivity() {
 
     override fun onResume() {
         super.onResume()
+        top = java.lang.ref.WeakReference(this)
         applyClock()
     }
 

@@ -1,7 +1,10 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <style name="Theme.MultiViewTV" parent="Theme.AppCompat.NoActionBar">
-        <item name="android:windowBackground">@color/bg</item>
+        <item name="android:windowBackground">@drawable/bg_app</item>
+        <item name="android:fontFamily">@font/plex</item>
+        <item name="fontFamily">@font/plex</item>
+        <item name="alertDialogTheme">@style/TvDialog</item>
         <item name="android:windowFullscreen">true</item>
         <item name="colorPrimary">@color/accent</item>
         <item name="colorAccent">@color/accent</item>
@@ -15,16 +18,16 @@
         <item name="android:textSize">17sp</item>
         <item name="android:paddingStart">24dp</item>
         <item name="android:paddingEnd">24dp</item>
-        <item name="android:minHeight">48dp</item>
+        <item name="android:minHeight">52dp</item>
         <item name="android:focusable">true</item>
         <item name="android:textAllCaps">false</item>
         <item name="android:stateListAnimator">@null</item>
-        <item name="android:fontFamily">sans-serif-medium</item>
+        <item name="android:fontFamily">@font/plex_medium</item>
     </style>
 
     <style name="TvButton.Primary">
         <item name="android:background">@drawable/bg_button_primary</item>
-        <item name="android:textColor">@color/bg</item>
+        <item name="android:textColor">@color/on_focus</item>
         <item name="android:textStyle">bold</item>
     </style>
 
@@ -43,8 +46,16 @@
         <item name="android:layout_marginBottom">6dp</item>
     </style>
 
+    <style name="TvDialog" parent="Theme.AppCompat.Dialog.Alert">
+        <item name="android:fontFamily">@font/plex</item>
+        <item name="fontFamily">@font/plex</item>
+        <item name="colorAccent">@color/accent</item>
+        <item name="android:windowBackground">@drawable/bg_dialog</item>
+        <item name="android:textColorPrimary">@color/text</item>
+    </style>
+
     <style name="TvNav">
-        <item name="android:background">@drawable/bg_row</item>
+        <item name="android:background">@drawable/bg_pill</item>
         <item name="android:textColor">@color/row_text</item>
         <item name="android:drawableTint">@color/row_text</item>
         <item name="android:drawablePadding">14dp</item>
@@ -56,7 +67,7 @@
         <item name="android:focusable">true</item>
         <item name="android:textAllCaps">false</item>
         <item name="android:stateListAnimator">@null</item>
-        <item name="android:fontFamily">sans-serif-medium</item>
+        <item name="android:fontFamily">@font/plex_medium</item>
     </style>
 
     <style name="SectionLabel">

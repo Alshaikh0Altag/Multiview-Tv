@@ -75,6 +75,10 @@ class MainActivity : BaseActivity() {
         channels.layoutManager = LinearLayoutManager(this)
         channels.adapter = channelAdapter
 
+        findViewById<Button>(R.id.openSearch).setOnClickListener {
+            releasePreview()
+            startActivity(Intent(this, SearchActivity::class.java))
+        }
         findViewById<Button>(R.id.openMovies).setOnClickListener { openVod(VodActivity.MODE_MOVIES) }
         findViewById<Button>(R.id.openSeries).setOnClickListener { openVod(VodActivity.MODE_SERIES) }
         findViewById<Button>(R.id.openMultiView).setOnClickListener { openMultiView() }
@@ -118,6 +122,7 @@ class MainActivity : BaseActivity() {
         val counts = Repository.channels.groupingBy { it.categoryId }.eachCount()
         val excluded = excludedCategories("l:")
         val list = mutableListOf(
+            GroupItem(Repository.RECENT_ID, getString(R.string.recent_channels), -1),
             GroupItem(Repository.FAVORITES_ID, getString(R.string.favorite), Repository.channels.count { favs.contains(it.id) }),
             GroupItem(Repository.ALL_ID, getString(R.string.all_channels),
                 Repository.channels.count { it.categoryId !in excluded }),

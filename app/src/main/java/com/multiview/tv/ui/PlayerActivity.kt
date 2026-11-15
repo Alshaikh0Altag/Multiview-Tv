@@ -14,6 +14,8 @@ import androidx.media3.common.PlaybackException
 import androidx.media3.common.Player
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.ui.PlayerView
+import androidx.recyclerview.widget.LinearLayoutManager
+import androidx.recyclerview.widget.RecyclerView
 import com.multiview.tv.R
 import com.multiview.tv.data.Channel
 import com.multiview.tv.data.Prefs
@@ -38,6 +40,19 @@ class PlayerActivity : BaseActivity() {
     private lateinit var chNumber: TextView
     private lateinit var chName: TextView
 
+    // channel list panel
+    private lateinit var chPanel: View
+    private lateinit var panelGroups: View
+    private lateinit var panelTitle: TextView
+    private lateinit var panelGroupList: RecyclerView
+    private lateinit var panelChannelList: RecyclerView
+    private lateinit var panelGroupAdapter: GroupAdapter
+    private lateinit var panelChannelAdapter: ChannelAdapter
+    private var group = Repository.ALL_ID
+    private var panelGroup = Repository.ALL_ID
+    private val hidePanel = Runnable { closePanel() }
+    private val panelVisible get() = chPanel.visibility == View.VISIBLE
+
     private var player: ExoPlayer? = null
     private var afr: FrameRateMatcher? = null
     private var list: List<Channel> = emptyList()
@@ -61,8 +76,9 @@ class PlayerActivity : BaseActivity() {
         chName = findViewById(R.id.chName)
         PlayerMenu.applySavedResizeMode(this, playerView)
 
-        val group = intent.getStringExtra(EXTRA_GROUP) ?: Repository.ALL_ID
+        group = intent.getStringExtra(EXTRA_GROUP) ?: Repository.ALL_ID
         list = Repository.channelsIn(group, Prefs.favorites(this), excludedCategories("l:"))
+        setupPanel()
         if (list.isEmpty()) { finish(); return }
         index = intent.getIntExtra(EXTRA_INDEX, 0).coerceIn(0, list.size - 1)
     }
@@ -96,7 +112,7 @@ class PlayerActivity : BaseActivity() {
 
     override fun onPictureInPictureModeChanged(isInPipMode: Boolean, newConfig: Configuration) {
         super.onPictureInPictureModeChanged(isInPipMode, newConfig)
-        if (isInPipMode) overlay.visibility = View.GONE
+        if (isInPipMode) { overlay.visibility = View.GONE; closePanel() }
         setClockVisible(!isInPipMode)
     }
 
@@ -109,9 +125,145 @@ class PlayerActivity : BaseActivity() {
         handler.removeCallbacks(retry)
         player?.playUrl(c.url)
         Settings.setLastChannel(this, c.id)
+        Settings.pushRecentChannel(this, c.id)
+        Repository.recentIds = Settings.recentChannels(this)
         chNumber.text = c.number.toString()
         chName.text = c.name
         showOverlay()
+    }
+
+    // ---------- channel list panel (OK) ----------
+
+    private fun setupPanel() {
+        chPanel = findViewById(R.id.chPanel)
+        panelGroups = findViewById(R.id.panelGroups)
+        panelTitle = findViewById(R.id.panelTitle)
+        panelGroupList = findViewById(R.id.panelGroupList)
+        panelChannelList = findViewById(R.id.panelChannelList)
+
+        panelGroupAdapter = GroupAdapter(
+            onFocus = { g -> if (!g.locked && g.id != panelGroup) showPanelGroup(g.id, g.name) },
+            onClick = { g ->
+                withPin("l:${g.id}") {
+                    showPanelGroup(g.id, g.name)
+                    focusPanelChannel(0)
+                }
+            },
+        )
+        panelChannelAdapter = ChannelAdapter(
+            onFocus = { _, _ -> },
+            onClick = { _, pos ->
+                // switch to the chosen group's list and tune
+                group = panelGroup
+                list = panelChannelAdapter.items
+                index = -1
+                tune(pos)
+                closePanel()
+            },
+            onLongClick = { c, _ ->
+                val slot = Repository.addToMultiView(c)
+                Toast.makeText(this, if (slot < 0) getString(R.string.multiview_full)
+                    else getString(R.string.added_to_slot, slot + 1), Toast.LENGTH_SHORT).show()
+            },
+        )
+        panelGroupList.layoutManager = LinearLayoutManager(this)
+        panelGroupList.adapter = panelGroupAdapter
+        panelChannelList.layoutManager = LinearLayoutManager(this)
+        panelChannelList.adapter = panelChannelAdapter
+    }
+
+    private fun buildPanelGroups() {
+        val favs = Prefs.favorites(this)
+        val hidden = Settings.hiddenGroups(this)
+        val locked = Settings.lockedGroups(this)
+        val items = mutableListOf(
+            GroupItem(Repository.RECENT_ID, getString(R.string.recent_channels), Repository.recentIds.size),
+            GroupItem(Repository.FAVORITES_ID, getString(R.string.favorite), Repository.channels.count { favs.contains(it.id) }),
+            GroupItem(Repository.ALL_ID, getString(R.string.all_channels), -1),
+        )
+        val counts = Repository.channels.groupingBy { it.categoryId }.eachCount()
+        Repository.categories.forEach { c ->
+            val key = "l:${c.id}"
+            val n = counts[c.id] ?: 0
+            if (n > 0 && key !in hidden) items += GroupItem(c.id, c.name, n, locked = key in locked && key !in unlockedGroups)
+        }
+        panelGroupAdapter.items = items
+    }
+
+    private fun showPanelGroup(id: String, name: String) {
+        panelGroup = id
+        panelGroupAdapter.selectedId = id
+        panelTitle.text = name
+        panelChannelAdapter.favorites = Prefs.favorites(this)
+        panelChannelAdapter.items = Repository.channelsIn(id, Prefs.favorites(this), excludedCategories("l:"))
+    }
+
+    private fun openPanel() {
+        overlay.visibility = View.GONE
+        buildPanelGroups()
+        val name = panelGroupAdapter.items.firstOrNull { it.id == group }?.name ?: getString(R.string.all_channels)
+        panelGroup = group
+        panelGroupAdapter.selectedId = group
+        panelTitle.text = name
+        panelChannelAdapter.favorites = Prefs.favorites(this)
+        panelChannelAdapter.items = list
+        panelGroups.visibility = View.GONE
+        chPanel.visibility = View.VISIBLE
+        setClockVisible(false)
+        focusPanelChannel(index.coerceAtLeast(0))
+        bumpPanelTimer()
+    }
+
+    private fun focusPanelChannel(pos: Int) {
+        val p = pos.coerceIn(0, (panelChannelAdapter.itemCount - 1).coerceAtLeast(0))
+        (panelChannelList.layoutManager as LinearLayoutManager).scrollToPositionWithOffset(p, 200)
+        panelChannelList.post {
+            panelChannelList.findViewHolderForAdapterPosition(p)?.itemView?.requestFocus()
+                ?: panelChannelList.getChildAt(0)?.requestFocus()
+        }
+    }
+
+    private fun openGroupsColumn() {
+        panelGroups.visibility = View.VISIBLE
+        val p = panelGroupAdapter.positionOf(panelGroup).coerceAtLeast(0)
+        panelGroupList.scrollToPosition(p)
+        panelGroupList.post {
+            panelGroupList.findViewHolderForAdapterPosition(p)?.itemView?.requestFocus()
+                ?: panelGroupList.getChildAt(0)?.requestFocus()
+        }
+    }
+
+    private fun closePanel() {
+        handler.removeCallbacks(hidePanel)
+        chPanel.visibility = View.GONE
+        panelGroups.visibility = View.GONE
+        setClockVisible(true)
+    }
+
+    private fun bumpPanelTimer() {
+        handler.removeCallbacks(hidePanel)
+        handler.postDelayed(hidePanel, 20_000)
+    }
+
+    override fun dispatchKeyEvent(event: KeyEvent): Boolean {
+        if (!isScreenLocked && ::chPanel.isInitialized && panelVisible && event.action == KeyEvent.ACTION_DOWN) {
+            bumpPanelTimer()
+            when (event.keyCode) {
+                KeyEvent.KEYCODE_BACK -> {
+                    if (panelGroups.visibility == View.VISIBLE && panelGroupList.hasFocus()) {
+                        // back from groups → channels
+                        panelGroups.visibility = View.GONE
+                        focusPanelChannel(0)
+                    } else closePanel()
+                    return true
+                }
+                KeyEvent.KEYCODE_DPAD_LEFT -> if (panelChannelList.hasFocus()) { openGroupsColumn(); return true }
+                KeyEvent.KEYCODE_DPAD_RIGHT -> if (panelGroupList.hasFocus()) { focusPanelChannel(0); return true }
+            }
+            return super.dispatchKeyEvent(event)
+        }
+        if (::chPanel.isInitialized && panelVisible) return super.dispatchKeyEvent(event)
+        return super.dispatchKeyEvent(event)
     }
 
     private fun showOverlay() {
@@ -164,6 +316,7 @@ class PlayerActivity : BaseActivity() {
     }
 
     override fun onKeyDown(keyCode: Int, event: KeyEvent): Boolean {
+        if (panelVisible) return super.onKeyDown(keyCode, event)
         if (keyCode in KeyEvent.KEYCODE_0..KeyEvent.KEYCODE_9) { onDigit(keyCode - KeyEvent.KEYCODE_0); return true }
         if (keyCode in KeyEvent.KEYCODE_NUMPAD_0..KeyEvent.KEYCODE_NUMPAD_9) { onDigit(keyCode - KeyEvent.KEYCODE_NUMPAD_0); return true }
         when (keyCode) {
@@ -174,21 +327,22 @@ class PlayerActivity : BaseActivity() {
                 event.startTracking()   // so a long press can open the menu
                 return true
             }
-            KeyEvent.KEYCODE_MENU, KeyEvent.KEYCODE_INFO, KeyEvent.KEYCODE_SETTINGS -> { openMenu(); return true }
+            KeyEvent.KEYCODE_MENU, KeyEvent.KEYCODE_SETTINGS -> { openMenu(); return true }
+            KeyEvent.KEYCODE_INFO -> { if (overlay.visibility == View.VISIBLE) overlay.visibility = View.GONE else showOverlay(); return true }
         }
         return super.onKeyDown(keyCode, event)
     }
 
     override fun onKeyLongPress(keyCode: Int, event: KeyEvent): Boolean {
+        if (panelVisible) return super.onKeyLongPress(keyCode, event)
         if (keyCode == KeyEvent.KEYCODE_DPAD_CENTER || keyCode == KeyEvent.KEYCODE_ENTER) { openMenu(); return true }
         return super.onKeyLongPress(keyCode, event)
     }
 
     override fun onKeyUp(keyCode: Int, event: KeyEvent): Boolean {
+        if (panelVisible) return super.onKeyUp(keyCode, event)
         if ((keyCode == KeyEvent.KEYCODE_DPAD_CENTER || keyCode == KeyEvent.KEYCODE_ENTER) && !event.isCanceled) {
-            if (event.flags and KeyEvent.FLAG_CANCELED_LONG_PRESS == 0) {
-                if (overlay.visibility == View.VISIBLE) overlay.visibility = View.GONE else showOverlay()
-            }
+            if (event.flags and KeyEvent.FLAG_CANCELED_LONG_PRESS == 0 && !panelVisible) openPanel()
             return true
         }
         return super.onKeyUp(keyCode, event)

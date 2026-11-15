@@ -34,7 +34,7 @@ class SettingsActivity : BaseActivity() {
             setPadding(pad, pad, pad, pad)
         }
         setContentView(ScrollView(this).apply {
-            setBackgroundColor(getColor(R.color.bg))
+            setBackgroundColor(android.graphics.Color.TRANSPARENT)
             addView(column, ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
         })
 
@@ -42,6 +42,8 @@ class SettingsActivity : BaseActivity() {
 
         header(R.string.set_section_playlists)
         row({ getString(R.string.set_playlists, Prefs.load(this)?.let { label(it) } ?: "-") }) { playlists() }
+        row({ getString(R.string.set_account) }) { accountInfo() }
+        row({ getString(R.string.set_refresh) }) { switchTo(Prefs.activeIndex(this)) }
 
         header(R.string.set_section_clock)
         row({ getString(R.string.set_clock, onOff(Settings.clockEnabled(this))) }) {
@@ -65,6 +67,20 @@ class SettingsActivity : BaseActivity() {
             Settings.setLiveFormat(this, if (Settings.liveFormat(this) == "m3u8") "ts" else "m3u8")
             switchTo(Prefs.activeIndex(this))   // reload channels with the new format
         }
+        row({ getString(R.string.set_buffer, getString(when (Settings.bufferSize(this)) {
+            "small" -> R.string.buffer_small; "large" -> R.string.buffer_large; else -> R.string.buffer_normal })) }) {
+            val order = listOf("small", "normal", "large")
+            Settings.setBufferSize(this, order[(order.indexOf(Settings.bufferSize(this)) + 1).mod(order.size)])
+        }
+        row({ getString(R.string.set_subtitle_size, Settings.subtitleSize(this)) }) {
+            val steps = listOf(80, 100, 130, 160)
+            Settings.setSubtitleSize(this, steps[(steps.indexOf(Settings.subtitleSize(this)) + 1).mod(steps.size)])
+        }
+        row({ getString(R.string.set_sort, getString(if (Settings.channelSort(this) == "name") R.string.sort_name else R.string.sort_number)) }) {
+            Settings.setChannelSort(this, if (Settings.channelSort(this) == "name") "number" else "name")
+            applyGlobalSettings()
+        }
+        row({ getString(R.string.set_user_agent, Settings.userAgent(this).ifBlank { getString(R.string.default_label) }) }) { userAgentDialog() }
         row({ getString(R.string.set_decoder, getString(if (Settings.decoder(this) == "sw") R.string.decoder_sw else R.string.decoder_hw)) }) {
             Settings.setDecoder(this, if (Settings.decoder(this) == "sw") "hw" else "sw")
         }
@@ -197,6 +213,54 @@ class SettingsActivity : BaseActivity() {
                 .setNegativeButton(android.R.string.cancel, null)
                 .show()
         }
+    }
+
+    private fun accountInfo() {
+        val a = Repository.account
+        val p = Prefs.load(this)
+        val fmt = java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.US)
+        val lines = if (a == null) {
+            listOf(getString(R.string.acc_m3u))
+        } else listOfNotNull(
+            getString(R.string.acc_user, a.username.ifBlank { p?.username ?: "-" }),
+            getString(R.string.acc_status, a.status.ifBlank { "-" }),
+            a.expiresAt?.let { getString(R.string.acc_expires, fmt.format(java.util.Date(it))) }
+                ?: getString(R.string.acc_expires, getString(R.string.acc_unlimited)),
+            a.expiresAt?.let {
+                val days = ((it - System.currentTimeMillis()) / 86_400_000L).coerceAtLeast(0)
+                getString(R.string.acc_days_left, days)
+            },
+            getString(R.string.acc_connections, a.activeConnections, a.maxConnections),
+            a.createdAt?.let { getString(R.string.acc_created, fmt.format(java.util.Date(it))) },
+            p?.server?.takeIf { it.isNotBlank() }?.let { getString(R.string.acc_server, it) },
+        )
+        AlertDialog.Builder(this)
+            .setTitle(R.string.set_account)
+            .setMessage(lines.joinToString("\n"))
+            .setPositiveButton(android.R.string.ok, null)
+            .show()
+    }
+
+    private fun userAgentDialog() {
+        val input = EditText(this).apply {
+            setText(Settings.userAgent(this@SettingsActivity))
+            hint = com.multiview.tv.data.Http.DEFAULT_USER_AGENT
+            textDirection = android.view.View.TEXT_DIRECTION_LTR
+        }
+        AlertDialog.Builder(this)
+            .setTitle(R.string.set_user_agent_title)
+            .setMessage(R.string.set_user_agent_msg)
+            .setView(input)
+            .setPositiveButton(android.R.string.ok) { _, _ ->
+                Settings.setUserAgent(this, input.text.toString().trim())
+                applyGlobalSettings()
+                refresh()
+            }
+            .setNeutralButton(R.string.default_label) { _, _ ->
+                Settings.setUserAgent(this, ""); applyGlobalSettings(); refresh()
+            }
+            .setNegativeButton(android.R.string.cancel, null)
+            .show()
     }
 
     private fun changePin() {

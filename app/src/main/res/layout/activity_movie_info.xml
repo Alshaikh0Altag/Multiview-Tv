@@ -52,7 +52,7 @@
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:ellipsize="end"
-                android:fontFamily="sans-serif-medium"
+                android:fontFamily="@font/plex_medium"
                 android:maxLines="2"
                 android:textColor="@color/text"
                 android:textSize="34sp" />
@@ -72,7 +72,7 @@
                 android:layout_marginTop="10dp"
                 android:drawableStart="@drawable/ic_star"
                 android:drawablePadding="6dp"
-                android:fontFamily="sans-serif-medium"
+                android:fontFamily="@font/plex_medium"
                 android:gravity="center_vertical"
                 android:textColor="@color/text"
                 android:textSize="16sp"
@@ -119,7 +119,7 @@
                     android:layout_height="wrap_content"
                     android:drawableStart="@drawable/ic_play"
                     android:drawablePadding="10dp"
-                    android:drawableTint="@color/bg"
+                    android:drawableTint="@color/on_focus"
                     android:paddingStart="32dp"
                     android:paddingEnd="32dp"
                     android:text="@string/play" />

@@ -51,6 +51,12 @@
             android:windowSoftInputMode="stateHidden|adjustNothing" />
 
         <activity
+            android:name=".ui.SearchActivity"
+            android:exported="false"
+            android:screenOrientation="landscape"
+            android:windowSoftInputMode="stateAlwaysVisible|adjustNothing" />
+
+        <activity
             android:name=".ui.MovieInfoActivity"
             android:exported="false"
             android:screenOrientation="landscape" />

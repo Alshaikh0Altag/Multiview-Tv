@@ -61,7 +61,7 @@
             android:paddingEnd="10dp"
             android:paddingBottom="4dp"
             android:text="🔊"
-            android:textColor="@color/bg"
+            android:textColor="@color/text"
             android:textSize="13sp"
             android:visibility="gone" />
     </LinearLayout>

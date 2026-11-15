@@ -55,7 +55,12 @@ class XtreamApi(
         val status = ui.optString("status", "")
         val max = ui.optString("max_connections", "1").toIntOrNull() ?: 1
         val exp = ui.optString("exp_date", "").toLongOrNull()?.times(1000)
-        return AccountInfo(active = auth && status.equals("Active", true), maxConnections = max, expiresAt = exp)
+        return AccountInfo(
+            active = auth && status.equals("Active", true), maxConnections = max, expiresAt = exp,
+            activeConnections = ui.optString("active_cons", "0").toIntOrNull() ?: 0,
+            createdAt = ui.optString("created_at", "").toLongOrNull()?.times(1000),
+            status = status, username = ui.optString("username", ""),
+        )
     }
 
     // ---------- live ----------

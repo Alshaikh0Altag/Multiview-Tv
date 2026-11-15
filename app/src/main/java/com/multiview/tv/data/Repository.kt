@@ -7,6 +7,11 @@ import kotlinx.coroutines.withContext
 object Repository {
     const val FAVORITES_ID = "__fav__"
     const val ALL_ID = "__all__"
+    const val RECENT_ID = "__recent__"
+
+    /** Set from Settings: recently watched channel ids (newest first) and the channel order. */
+    var recentIds: List<String> = emptyList()
+    var sortByName: Boolean = false
 
     var playlist: Playlist? = null
         private set
@@ -111,10 +116,17 @@ object Repository {
     }
 
     /** @param excluded raw category ids hidden or still locked — left out of "all channels" */
-    fun channelsIn(categoryId: String, favorites: Set<String>, excluded: Set<String> = emptySet()): List<Channel> = when (categoryId) {
-        ALL_ID -> if (excluded.isEmpty()) channels else channels.filter { it.categoryId !in excluded }
-        FAVORITES_ID -> channels.filter { favorites.contains(it.id) }
-        else -> channels.filter { it.categoryId == categoryId }
+    fun channelsIn(categoryId: String, favorites: Set<String>, excluded: Set<String> = emptySet()): List<Channel> {
+        if (categoryId == RECENT_ID) {
+            val byId = channels.associateBy { it.id }
+            return recentIds.mapNotNull { byId[it] }.filter { it.categoryId !in excluded }
+        }
+        val list = when (categoryId) {
+            ALL_ID -> if (excluded.isEmpty()) channels else channels.filter { it.categoryId !in excluded }
+            FAVORITES_ID -> channels.filter { favorites.contains(it.id) }
+            else -> channels.filter { it.categoryId == categoryId }
+        }
+        return if (sortByName) list.sortedBy { it.name.lowercase() } else list
     }
 
     fun addToMultiView(channel: Channel): Int {
