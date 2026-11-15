@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="bg">#0E1116</color>
+    <color name="surface">#161B22</color>
+    <color name="surface2">#1F2630</color>
+    <color name="line">#2C3542</color>
+    <color name="text">#E8EDF3</color>
+    <color name="muted">#9AA6B2</color>
+    <color name="accent">#3BA7FF</color>
+    <color name="live">#F59E0B</color>
+    <color name="tile">#1A212B</color>
+    <color name="scrim">#E60E1116</color>
+</resources>

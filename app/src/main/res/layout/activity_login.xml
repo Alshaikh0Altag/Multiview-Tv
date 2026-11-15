@@ -1,0 +1,170 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@color/bg"
+    android:orientation="horizontal">
+
+    <LinearLayout
+        android:layout_width="380dp"
+        android:layout_height="match_parent"
+        android:background="@color/surface"
+        android:orientation="vertical"
+        android:padding="48dp">
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="@string/app_name"
+            android:textSize="30sp"
+            android:textStyle="bold" />
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="20dp"
+            android:lineSpacingMultiplier="1.3"
+            android:text="@string/login_hint"
+            android:textColor="@color/muted"
+            android:textSize="18sp" />
+    </LinearLayout>
+
+    <ScrollView
+        android:layout_width="0dp"
+        android:layout_height="match_parent"
+        android:layout_weight="1">
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:paddingStart="80dp"
+            android:paddingTop="48dp"
+            android:paddingEnd="80dp"
+            android:paddingBottom="48dp">
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="@string/add_playlist"
+                android:textSize="32sp"
+                android:textStyle="bold" />
+
+            <LinearLayout
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="20dp"
+                android:orientation="horizontal">
+
+                <Button
+                    android:id="@+id/tabXtream"
+                    style="@style/TvButton.Primary"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="@string/xtream" />
+
+                <Button
+                    android:id="@+id/tabM3u"
+                    style="@style/TvButton"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="12dp"
+                    android:text="@string/m3u" />
+            </LinearLayout>
+
+            <LinearLayout
+                android:id="@+id/xtreamForm"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical">
+
+                <TextView style="@style/Label" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="@string/server" />
+                <EditText
+                    android:id="@+id/server"
+                    style="@style/TvInput"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:hint="http://example.com:8080"
+                    android:inputType="textUri"
+                    android:textDirection="ltr" />
+
+                <TextView style="@style/Label" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="@string/username" />
+                <EditText
+                    android:id="@+id/username"
+                    style="@style/TvInput"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:inputType="text"
+                    android:textDirection="ltr" />
+
+                <TextView style="@style/Label" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="@string/password" />
+                <EditText
+                    android:id="@+id/password"
+                    style="@style/TvInput"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:inputType="textPassword"
+                    android:textDirection="ltr" />
+            </LinearLayout>
+
+            <LinearLayout
+                android:id="@+id/m3uForm"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:visibility="gone">
+
+                <TextView style="@style/Label" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="@string/m3u_url" />
+                <EditText
+                    android:id="@+id/m3uUrl"
+                    style="@style/TvInput"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:hint="http://example.com/get.php?..."
+                    android:inputType="textUri"
+                    android:textDirection="ltr" />
+            </LinearLayout>
+
+            <TextView style="@style/Label" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="@string/playlist_name" />
+            <EditText
+                android:id="@+id/name"
+                style="@style/TvInput"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:inputType="text" />
+
+            <TextView
+                android:id="@+id/error"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="12dp"
+                android:textColor="@color/live"
+                android:textSize="16sp"
+                android:visibility="gone" />
+
+            <LinearLayout
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="24dp"
+                android:gravity="center_vertical"
+                android:orientation="horizontal">
+
+                <Button
+                    android:id="@+id/login"
+                    style="@style/TvButton.Primary"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:paddingStart="48dp"
+                    android:paddingEnd="48dp"
+                    android:text="@string/login" />
+
+                <ProgressBar
+                    android:id="@+id/progress"
+                    android:layout_width="36dp"
+                    android:layout_height="36dp"
+                    android:layout_marginStart="20dp"
+                    android:visibility="gone" />
+            </LinearLayout>
+        </LinearLayout>
+    </ScrollView>
+</LinearLayout>
