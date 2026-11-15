@@ -22,6 +22,7 @@ import androidx.media3.ui.AspectRatioFrameLayout
 import androidx.media3.ui.PlayerView
 import com.multiview.tv.R
 import com.multiview.tv.data.Settings
+import com.multiview.tv.ui.BaseActivity
 
 /**
  * The options menu used by both players:
@@ -46,6 +47,7 @@ object PlayerMenu {
         items += activity.getString(R.string.menu_info) to { info(activity, player) }
         items += activity.getString(R.string.menu_external) to { external(activity, url) }
         if (pipSupported(activity)) items += activity.getString(R.string.menu_pip) to { enterPip(activity) }
+        if (activity is BaseActivity) items += activity.getString(R.string.menu_lock) to { activity.lockScreen() }
 
         AlertDialog.Builder(activity)
             .setItems(items.map { it.first }.toTypedArray()) { _, i -> items[i].second() }

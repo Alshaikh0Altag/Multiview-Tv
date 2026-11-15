@@ -63,16 +63,16 @@ class XtreamApi(
     fun liveCategories() = categories("get_live_categories")
 
     fun liveStreams(): List<Channel> {
-        val arr = array("get_live_streams")
-        return (0 until arr.length()).map {
-            val o = arr.getJSONObject(it)
-            val id = o.optString("stream_id")
+        var n = 0
+        return Http.streamArray(api("get_live_streams"), timeoutMs = 45_000) { o ->
+            val id = o["stream_id"] ?: return@streamArray null
+            n++
             Channel(
                 id = id,
-                number = o.optInt("num", it + 1),
-                name = o.optString("name"),
-                logo = o.str("stream_icon"),
-                categoryId = o.optString("category_id"),
+                number = o["num"]?.toIntOrNull() ?: n,
+                name = o["name"] ?: "",
+                logo = o["stream_icon"]?.takeIf { it.isNotBlank() && it != "null" },
+                categoryId = o["category_id"] ?: "",
                 url = "$base/live/$user/$pass/$id.$liveExt",
             )
         }
@@ -82,39 +82,62 @@ class XtreamApi(
 
     fun vodCategories() = categories("get_vod_categories")
 
-    /** Movies of one category (fast) — loading every movie at once is too heavy for TV boxes. */
-    fun vodStreams(categoryId: String): List<Movie> {
-        val arr = array("get_vod_streams", mapOf("category_id" to categoryId), timeout = 45_000)
-        return (0 until arr.length()).map {
-            val o = arr.getJSONObject(it)
-            val id = o.optString("stream_id")
-            val ext = o.str("container_extension") ?: "mp4"
+    /**
+     * Movies of one category, or all movies when [categoryId] is null.
+     * Streamed, so even very large libraries don't run the TV box out of memory.
+     */
+    fun vodStreams(categoryId: String?): List<Movie> {
+        val extra = if (categoryId != null) mapOf("category_id" to categoryId) else emptyMap()
+        return Http.streamArray(api("get_vod_streams", extra), timeoutMs = 60_000) { o ->
+            val id = o["stream_id"] ?: return@streamArray null
+            val ext = o["container_extension"]?.takeIf { it.isNotBlank() } ?: "mp4"
             Movie(
                 id = id,
-                name = o.optString("name"),
-                poster = o.str("stream_icon"),
-                categoryId = o.optString("category_id"),
+                name = o["name"] ?: "",
+                poster = o["stream_icon"]?.takeIf { it.isNotBlank() && it != "null" },
+                categoryId = o["category_id"] ?: "",
                 url = "$base/movie/$user/$pass/$id.$ext",
-                rating = o.str("rating"),
+                rating = o["rating"]?.takeIf { it.isNotBlank() && it != "0" && it != "null" },
+                added = o["added"]?.toLongOrNull() ?: 0,
             )
         }
+    }
+
+    fun vodInfo(movieId: String): MovieDetails {
+        val json = JSONObject(Http.get(api("get_vod_info", mapOf("vod_id" to movieId)), timeoutMs = 20_000))
+        val i = json.optJSONObject("info") ?: JSONObject()
+        val backdrop = i.optJSONArray("backdrop_path")?.optString(0)?.takeIf { it.isNotBlank() }
+        return MovieDetails(
+            plot = i.str("plot") ?: i.str("description"),
+            genre = i.str("genre"),
+            director = i.str("director"),
+            cast = i.str("cast") ?: i.str("actors"),
+            releaseDate = i.str("releasedate") ?: i.str("release_date"),
+            duration = i.str("duration"),
+            rating = i.str("rating")?.takeIf { it != "0" },
+            backdrop = backdrop,
+            poster = i.str("movie_image") ?: i.str("cover_big"),
+        )
     }
 
     // ---------- series ----------
 
     fun seriesCategories() = categories("get_series_categories")
 
-    fun seriesList(categoryId: String): List<Series> {
-        val arr = array("get_series", mapOf("category_id" to categoryId), timeout = 45_000)
-        return (0 until arr.length()).map {
-            val o = arr.getJSONObject(it)
+    fun seriesList(categoryId: String?): List<Series> {
+        val extra = if (categoryId != null) mapOf("category_id" to categoryId) else emptyMap()
+        return Http.streamArray(api("get_series", extra), timeoutMs = 60_000) { o ->
+            val id = o["series_id"] ?: return@streamArray null
             Series(
-                id = o.optString("series_id"),
-                name = o.optString("name"),
-                cover = o.str("cover"),
-                categoryId = o.optString("category_id"),
-                plot = o.str("plot"),
-                rating = o.str("rating"),
+                id = id,
+                name = o["name"] ?: "",
+                cover = o["cover"]?.takeIf { it.isNotBlank() && it != "null" },
+                categoryId = o["category_id"] ?: "",
+                plot = o["plot"]?.takeIf { it.isNotBlank() },
+                rating = o["rating"]?.takeIf { it.isNotBlank() && it != "0" && it != "null" },
+                added = o["last_modified"]?.toLongOrNull() ?: 0,
+                genre = o["genre"]?.takeIf { it.isNotBlank() },
+                releaseDate = o["releaseDate"]?.takeIf { it.isNotBlank() },
             )
         }
     }

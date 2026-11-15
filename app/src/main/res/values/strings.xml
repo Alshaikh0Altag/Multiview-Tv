@@ -116,4 +116,18 @@
     <string name="channels_count">%1$d قناة</string>
     <string name="add_channel">إضافة قناة أخرى</string>
     <string name="multiview_hint">الأسهم: التنقل ونقل الصوت  ·  OK أو ضغط مطوّل: إضافة قناة / تغيير / ملء الشاشة / إزالة</string>
+    <string name="continue_watching">متابعة المشاهدة</string>
+    <string name="recently_added">المضافة حديثاً</string>
+    <string name="no_favorites">لا توجد عناصر في المفضلة بعد — أضفها من صفحة الفيلم أو المسلسل</string>
+    <string name="no_continue">لا يوجد شيء لمتابعته بعد</string>
+    <string name="minutes_left">متبقي %1$d دقيقة</string>
+    <string name="play">تشغيل</string>
+    <string name="add_favorite">إضافة للمفضلة</string>
+    <string name="remove_favorite">إزالة من المفضلة</string>
+    <string name="director">الإخراج: %1$s</string>
+    <string name="cast">التمثيل: %1$s</string>
+    <string name="menu_lock">قفل الشاشة</string>
+    <string name="screen_locked">🔒 الشاشة مقفلة — اضغط مطوّلاً على OK للفتح</string>
+    <string name="screen_unlocked">🔓 تم فتح القفل</string>
+    <string name="set_clock_opacity">شفافية الساعة: %1$d%%</string>
 </resources>

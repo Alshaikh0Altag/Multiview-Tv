@@ -2,6 +2,11 @@ package com.multiview.tv.ui
 
 import android.graphics.Typeface
 import android.os.Bundle
+import android.os.Handler
+import android.os.Looper
+import android.view.KeyEvent
+import android.view.View
+import android.widget.TextView
 import android.text.InputType
 import android.util.TypedValue
 import android.view.Gravity
@@ -27,6 +32,13 @@ open class BaseActivity : AppCompatActivity() {
     }
 
     private var clock: TextClock? = null
+    private var lockBadge: TextView? = null
+    private val lockHandler = Handler(Looper.getMainLooper())
+    private val hideLockBadge = Runnable { lockBadge?.visibility = View.GONE }
+
+    /** Screen lock: the remote does nothing until OK is held down. */
+    var isScreenLocked = false
+        private set
 
     override fun onPostCreate(savedInstanceState: Bundle?) {
         super.onPostCreate(savedInstanceState)
@@ -56,7 +68,8 @@ open class BaseActivity : AppCompatActivity() {
     protected fun applyClock() {
         val c = clock ?: return
         val enabled = Settings.clockEnabled(this) && !isInPictureInPictureModeCompat()
-        c.visibility = if (enabled) android.view.View.VISIBLE else android.view.View.GONE
+        c.visibility = if (enabled) View.VISIBLE else View.GONE
+        c.alpha = Settings.clockOpacity(this) / 100f
         // TextClock follows the system 12/24h setting; force the user's choice
         val fmt = if (Settings.clock24h(this)) "HH:mm" else "hh:mm a"
         c.format12Hour = fmt
@@ -70,7 +83,48 @@ open class BaseActivity : AppCompatActivity() {
     }
 
     protected fun setClockVisible(visible: Boolean) {
-        clock?.visibility = if (visible && Settings.clockEnabled(this)) android.view.View.VISIBLE else android.view.View.GONE
+        clock?.visibility = if (visible && Settings.clockEnabled(this)) View.VISIBLE else View.GONE
+    }
+
+    // ---------- screen lock ----------
+
+    fun lockScreen() {
+        isScreenLocked = true
+        showLockBadge(getString(R.string.screen_locked))
+    }
+
+    private fun showLockBadge(text: String) {
+        val root = findViewById<FrameLayout>(android.R.id.content) ?: return
+        val badge = lockBadge ?: TextView(this).apply {
+            setTextSize(TypedValue.COMPLEX_UNIT_SP, 18f)
+            setTextColor(getColor(R.color.text))
+            setBackgroundResource(R.drawable.bg_label)
+            val p = (14 * resources.displayMetrics.density).toInt()
+            setPadding(p * 2, p, p * 2, p)
+            elevation = 30f
+            gravity = Gravity.CENTER
+            root.addView(this, FrameLayout.LayoutParams(
+                FrameLayout.LayoutParams.WRAP_CONTENT, FrameLayout.LayoutParams.WRAP_CONTENT,
+                Gravity.CENTER,
+            ))
+        }.also { lockBadge = it }
+        badge.text = text
+        badge.visibility = View.VISIBLE
+        badge.bringToFront()
+        lockHandler.removeCallbacks(hideLockBadge)
+        lockHandler.postDelayed(hideLockBadge, 2_500)
+    }
+
+    override fun dispatchKeyEvent(event: KeyEvent): Boolean {
+        if (!isScreenLocked) return super.dispatchKeyEvent(event)
+        val ok = event.keyCode == KeyEvent.KEYCODE_DPAD_CENTER || event.keyCode == KeyEvent.KEYCODE_ENTER
+        if (ok && event.action == KeyEvent.ACTION_DOWN && (event.isLongPress || event.repeatCount >= 15)) {
+            isScreenLocked = false
+            showLockBadge(getString(R.string.screen_unlocked))
+            return true
+        }
+        if (event.action == KeyEvent.ACTION_DOWN && event.repeatCount == 0) showLockBadge(getString(R.string.screen_locked))
+        return true   // swallow everything while locked (Back included)
     }
 
     private fun isInPictureInPictureModeCompat(): Boolean =

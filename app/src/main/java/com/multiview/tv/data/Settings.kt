@@ -17,6 +17,10 @@ object Settings {
     fun clock24h(c: Context) = sp(c).getBoolean("clock_24", true)
     fun setClock24h(c: Context, v: Boolean) = sp(c).edit().putBoolean("clock_24", v).apply()
 
+    /** clock opacity in percent: 100 / 75 / 50 / 25 */
+    fun clockOpacity(c: Context) = sp(c).getInt("clock_alpha", 100)
+    fun setClockOpacity(c: Context, v: Int) = sp(c).edit().putInt("clock_alpha", v).apply()
+
     // Playback
     /** "hw" or "sw" */
     fun decoder(c: Context) = sp(c).getString("decoder", "hw")!!

@@ -47,7 +47,7 @@ class PosterAdapter(
     override fun onBindViewHolder(h: VH, position: Int) {
         val p = items[position]
         h.title.text = p.title
-        h.sub.text = p.sub?.let { "★ $it" } ?: ""
+        h.sub.text = p.sub ?: ""
         if (p.image != null) {
             h.poster.load(p.image) {
                 crossfade(false)

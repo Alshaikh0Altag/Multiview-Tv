@@ -2,6 +2,7 @@ package com.multiview.tv.ui
 
 import android.os.Bundle
 import android.view.View
+import android.widget.Button
 import android.widget.ImageView
 import android.widget.ProgressBar
 import android.widget.TextView
@@ -12,6 +13,7 @@ import androidx.recyclerview.widget.RecyclerView
 import coil.load
 import com.multiview.tv.R
 import com.multiview.tv.data.Episode
+import com.multiview.tv.data.Library
 import com.multiview.tv.data.Repository
 import com.multiview.tv.data.SeriesDetails
 import kotlinx.coroutines.launch
@@ -31,6 +33,7 @@ class SeriesActivity : BaseActivity() {
     private lateinit var episodeAdapter: EpisodeAdapter
 
     private var details: SeriesDetails? = null
+    private var series: com.multiview.tv.data.Series? = null
     private var currentEpisodes: List<Episode> = emptyList()
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -47,6 +50,13 @@ class SeriesActivity : BaseActivity() {
         findViewById<TextView>(R.id.seriesName).text = s.name
         findViewById<TextView>(R.id.seriesPlot).text = s.plot ?: ""
         s.cover?.let { findViewById<ImageView>(R.id.cover).load(it) }
+        series = s
+        val fav = findViewById<Button>(R.id.btnSeriesFav)
+        val updateFav = {
+            fav.setText(if (Library.isFavoriteSeries(this, s.id)) R.string.remove_favorite else R.string.add_favorite)
+        }
+        updateFav()
+        fav.setOnClickListener { Library.toggleFavoriteSeries(this, s); updateFav() }
 
         seasonAdapter = GroupAdapter(onFocus = { g -> showSeason(g.id.toInt()) })
         episodeAdapter = EpisodeAdapter { pos -> play(pos) }
@@ -88,7 +98,11 @@ class SeriesActivity : BaseActivity() {
     private fun play(pos: Int) {
         val name = details?.series?.name ?: ""
         val items = currentEpisodes.map {
-            VodPlayerActivity.Item("e:${it.id}", "$name — ${getString(R.string.episode_n, it.number)}", it.url)
+            VodPlayerActivity.Item(
+                "e:${it.id}",
+                "$name — ${getString(R.string.season_n, it.season)} · ${getString(R.string.episode_n, it.number)}",
+                it.url, details?.cover ?: series?.cover, series?.id,
+            )
         }
         startActivity(VodPlayerActivity.intent(this, items, pos))
     }

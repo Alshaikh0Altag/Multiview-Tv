@@ -14,6 +14,8 @@ import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import com.multiview.tv.R
 import com.multiview.tv.data.Category
+import com.multiview.tv.data.ContinueItem
+import com.multiview.tv.data.Library
 import com.multiview.tv.data.Movie
 import com.multiview.tv.data.Repository
 import com.multiview.tv.data.Series
@@ -24,8 +26,8 @@ import kotlinx.coroutines.launch
 
 /**
  * Movies or series library.
- * Loads the category list first, then only the category you open (cached),
- * instead of downloading the whole library at once.
+ * Special lists on top (continue watching, favorites, recently added, all),
+ * then the provider's categories — each loaded only when opened, and cached.
  */
 class VodActivity : BaseActivity() {
 
@@ -33,6 +35,11 @@ class VodActivity : BaseActivity() {
         const val EXTRA_MODE = "mode"
         const val MODE_MOVIES = "movies"
         const val MODE_SERIES = "series"
+
+        private const val G_CONTINUE = "__continue__"
+        private const val G_FAV = "__fav__"
+        private const val G_RECENT = "__recent__"
+        private const val G_ALL = "__all__"
     }
 
     private lateinit var mode: String
@@ -48,9 +55,11 @@ class VodActivity : BaseActivity() {
     private var currentGroup: String? = null
     private var movies: List<Movie> = emptyList()
     private var seriesList: List<Series> = emptyList()
+    private var continueItems: List<ContinueItem> = emptyList()
     private var loadJob: Job? = null
 
     private val prefix get() = if (mode == MODE_MOVIES) "m:" else "s:"
+    private val isMovies get() = mode == MODE_MOVIES
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -62,7 +71,7 @@ class VodActivity : BaseActivity() {
         search = findViewById(R.id.search)
         loading = findViewById(R.id.vodLoading)
         empty = findViewById(R.id.vodEmpty)
-        findViewById<TextView>(R.id.vodTitle).setText(if (mode == MODE_MOVIES) R.string.movies else R.string.series)
+        findViewById<TextView>(R.id.vodTitle).setText(if (isMovies) R.string.movies else R.string.series)
 
         groupAdapter = GroupAdapter(
             onFocus = { g -> if (!g.locked && g.id != currentGroup) openGroup(g.id, delayMs = 350) },
@@ -84,19 +93,31 @@ class VodActivity : BaseActivity() {
         loadCategories()
     }
 
+    override fun onResume() {
+        super.onResume()
+        // Continue watching / favorites change after playing or on the info screen
+        if (currentGroup == G_CONTINUE || currentGroup == G_FAV) currentGroup?.let { reloadQuietly(it) }
+    }
+
     private fun categories(): List<Category> =
-        if (mode == MODE_MOVIES) Repository.vodCategories else Repository.seriesCategories
+        if (isMovies) Repository.vodCategories else Repository.seriesCategories
+
+    private fun continueList() = Library.continueWatching(this, if (isMovies) "m:" else "e:")
 
     private fun loadCategories() {
         setLoading(true)
         lifecycleScope.launch {
             try {
-                if (mode == MODE_MOVIES) Repository.loadVodCategories() else Repository.loadSeriesCategories()
+                if (isMovies) Repository.loadVodCategories() else Repository.loadSeriesCategories()
                 buildGroups()
-                // Open the first category that is not locked
-                val first = groupAdapter.items.firstOrNull { !it.locked }
-                if (first != null) openGroup(first.id, delayMs = 0) else setLoading(false)
-                groups.post { groups.getChildAt(0)?.requestFocus() }
+                val first = if (continueList().isNotEmpty()) G_CONTINUE
+                    else groupAdapter.items.firstOrNull { !it.locked && !it.id.startsWith("__") }?.id ?: G_FAV
+                openGroup(first, delayMs = 0)
+                groups.post {
+                    val pos = groupAdapter.positionOf(first).coerceAtLeast(0)
+                    groups.scrollToPosition(pos)
+                    groups.post { groups.findViewHolderForAdapterPosition(pos)?.itemView?.requestFocus() }
+                }
             } catch (e: Exception) {
                 showError(e)
             }
@@ -106,7 +127,13 @@ class VodActivity : BaseActivity() {
     private fun buildGroups() {
         val hidden = Settings.hiddenGroups(this)
         val locked = Settings.lockedGroups(this)
-        groupAdapter.items = categories()
+        val special = listOf(
+            GroupItem(G_CONTINUE, getString(R.string.continue_watching), -1),
+            GroupItem(G_FAV, getString(R.string.favorite), -1),
+            GroupItem(G_RECENT, getString(R.string.recently_added), -1),
+            GroupItem(G_ALL, getString(R.string.all), -1),
+        )
+        groupAdapter.items = special + categories()
             .filter { prefix + it.id !in hidden }
             .map { c ->
                 val key = prefix + c.id
@@ -115,7 +142,10 @@ class VodActivity : BaseActivity() {
         groupAdapter.selectedId = currentGroup
     }
 
-    /** Loads one category (debounced while the remote scrolls through the list). */
+    /** Hidden or still-locked categories are left out of "all" and "recently added". */
+    private fun allowed(categoryId: String) = categoryId !in excludedCategories(prefix)
+
+    /** Loads one list (debounced while the remote scrolls through the groups). */
     private fun openGroup(id: String, delayMs: Long) {
         currentGroup = id
         groupAdapter.selectedId = id
@@ -124,8 +154,7 @@ class VodActivity : BaseActivity() {
             if (delayMs > 0) delay(delayMs)
             setLoading(true)
             try {
-                if (mode == MODE_MOVIES) movies = Repository.moviesIn(id)
-                else seriesList = Repository.seriesIn(id)
+                fetch(id)
                 if (currentGroup == id) showItems()
             } catch (e: Exception) {
                 if (currentGroup == id) showError(e)
@@ -133,21 +162,43 @@ class VodActivity : BaseActivity() {
         }
     }
 
-    private fun showItems() {
+    private fun reloadQuietly(id: String) {
+        lifecycleScope.launch {
+            try { fetch(id); if (currentGroup == id) showItems(keepPosition = true) } catch (_: Exception) {}
+        }
+    }
+
+    private suspend fun fetch(id: String) {
+        continueItems = emptyList()
+        when (id) {
+            G_CONTINUE -> continueItems = continueList()
+            G_FAV -> if (isMovies) movies = Library.favoriteMovies(this)
+                     else seriesList = Library.favoriteSeries(this).also { Repository.registerSeries(it) }
+            G_RECENT -> if (isMovies) movies = Repository.recentMovies().filter { allowed(it.categoryId) }
+                        else seriesList = Repository.recentSeries().filter { allowed(it.categoryId) }
+            G_ALL -> if (isMovies) movies = Repository.allMovies().filter { allowed(it.categoryId) }
+                     else seriesList = Repository.allSeries().filter { allowed(it.categoryId) }
+            else -> if (isMovies) movies = Repository.moviesIn(id) else seriesList = Repository.seriesIn(id)
+        }
+    }
+
+    private fun showItems(keepPosition: Boolean = false) {
         val q = search.text.toString().trim()
-        val items = if (mode == MODE_MOVIES) {
-            movies.asSequence()
-                .filter { q.isEmpty() || it.name.contains(q, ignoreCase = true) }
-                .map { PosterItem(it.id, it.name, it.poster, it.rating) }.toList()
-        } else {
-            seriesList.asSequence()
-                .filter { q.isEmpty() || it.name.contains(q, ignoreCase = true) }
-                .map { PosterItem(it.id, it.name, it.cover, it.rating) }.toList()
+        val match: (String) -> Boolean = { q.isEmpty() || it.contains(q, ignoreCase = true) }
+        val items = when {
+            currentGroup == G_CONTINUE -> continueItems.filter { match(it.title) }.map {
+                PosterItem(it.key, it.title, it.poster, getString(R.string.minutes_left, it.remainingMin))
+            }
+            isMovies -> movies.asSequence().filter { match(it.name) }
+                .map { PosterItem(it.id, it.name, it.poster, it.rating?.let { r -> "★ $r" }) }.toList()
+            else -> seriesList.asSequence().filter { match(it.name) }
+                .map { PosterItem(it.id, it.name, it.cover, it.rating?.let { r -> "★ $r" }) }.toList()
         }
         setLoading(false)
         posterAdapter.items = items
-        posters.scrollToPosition(0)
-        empty.text = getString(R.string.nothing_found)
+        if (!keepPosition) posters.scrollToPosition(0)
+        empty.text = getString(if (currentGroup == G_FAV) R.string.no_favorites
+            else if (currentGroup == G_CONTINUE) R.string.no_continue else R.string.nothing_found)
         empty.visibility = if (items.isEmpty()) View.VISIBLE else View.GONE
     }
 
@@ -166,10 +217,18 @@ class VodActivity : BaseActivity() {
     }
 
     private fun open(p: PosterItem) {
-        if (mode == MODE_MOVIES) {
+        if (currentGroup == G_CONTINUE) {
+            val c = continueItems.firstOrNull { it.key == p.id } ?: return
+            startActivity(VodPlayerActivity.intent(this,
+                listOf(VodPlayerActivity.Item(c.key, c.title, c.url, c.poster, c.seriesId)), 0,
+                VodPlayerActivity.RESUME_YES))
+            return
+        }
+        if (isMovies) {
             val m = movies.firstOrNull { it.id == p.id } ?: return
-            startActivity(VodPlayerActivity.intent(this, listOf(VodPlayerActivity.Item("m:${m.id}", m.name, m.url)), 0))
+            startActivity(MovieInfoActivity.intent(this, m))
         } else {
+            seriesList.firstOrNull { it.id == p.id }?.let { Repository.registerSeries(listOf(it)) }
             startActivity(Intent(this, SeriesActivity::class.java).putExtra(SeriesActivity.EXTRA_ID, p.id))
         }
     }

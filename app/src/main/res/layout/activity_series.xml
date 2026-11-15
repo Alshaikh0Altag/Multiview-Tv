@@ -15,7 +15,7 @@
         <ImageView
             android:id="@+id/cover"
             android:layout_width="match_parent"
-            android:layout_height="300dp"
+            android:layout_height="260dp"
             android:background="@drawable/bg_logo"
             android:importantForAccessibility="no"
             android:scaleType="centerCrop" />
@@ -37,6 +37,15 @@
             android:maxLines="6"
             android:textColor="@color/muted"
             android:textSize="15sp" />
+
+        <Button
+            android:id="@+id/btnSeriesFav"
+            style="@style/TvButton"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="16dp"
+            android:drawableStart="@drawable/ic_star"
+            android:drawablePadding="8dp" />
     </LinearLayout>
 
     <androidx.recyclerview.widget.RecyclerView

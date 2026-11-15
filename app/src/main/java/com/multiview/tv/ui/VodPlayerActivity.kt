@@ -13,7 +13,10 @@ import androidx.media3.common.Player
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.ui.PlayerView
 import com.multiview.tv.R
+import com.multiview.tv.data.Library
 import com.multiview.tv.data.Prefs
+import org.json.JSONArray
+import org.json.JSONObject
 import com.multiview.tv.player.FrameRateMatcher
 import com.multiview.tv.player.PlayerFactory
 import com.multiview.tv.player.PlayerMenu
@@ -24,20 +27,34 @@ import com.multiview.tv.player.PlayerMenu
  */
 class VodPlayerActivity : BaseActivity() {
 
-    data class Item(val key: String, val title: String, val url: String)
+    data class Item(
+        val key: String,
+        val title: String,
+        val url: String,
+        val poster: String? = null,
+        val seriesId: String? = null,
+    )
 
     companion object {
-        private const val EXTRA_KEYS = "keys"
-        private const val EXTRA_TITLES = "titles"
-        private const val EXTRA_URLS = "urls"
+        private const val EXTRA_ITEMS = "items"
         private const val EXTRA_START = "start"
+        private const val EXTRA_RESUME = "resume"
 
-        fun intent(ctx: Context, items: List<Item>, start: Int): Intent =
-            Intent(ctx, VodPlayerActivity::class.java)
-                .putExtra(EXTRA_KEYS, items.map { it.key }.toTypedArray())
-                .putExtra(EXTRA_TITLES, items.map { it.title }.toTypedArray())
-                .putExtra(EXTRA_URLS, items.map { it.url }.toTypedArray())
+        const val RESUME_ASK = 0
+        const val RESUME_YES = 1
+        const val RESUME_NO = 2
+
+        fun intent(ctx: Context, items: List<Item>, start: Int, resume: Int = RESUME_ASK): Intent {
+            val arr = JSONArray()
+            items.forEach {
+                arr.put(JSONObject().put("k", it.key).put("t", it.title).put("u", it.url)
+                    .put("p", it.poster ?: "").put("s", it.seriesId ?: ""))
+            }
+            return Intent(ctx, VodPlayerActivity::class.java)
+                .putExtra(EXTRA_ITEMS, arr.toString())
                 .putExtra(EXTRA_START, start)
+                .putExtra(EXTRA_RESUME, resume)
+        }
     }
 
     private lateinit var playerView: PlayerView
@@ -46,6 +63,7 @@ class VodPlayerActivity : BaseActivity() {
     private var items: List<Item> = emptyList()
     private var startIndex = 0
     private var askedResume = false
+    private var resumeDirect = false
     private var afr: FrameRateMatcher? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -59,10 +77,16 @@ class VodPlayerActivity : BaseActivity() {
             nameView.visibility = v
         })
 
-        val keys = intent.getStringArrayExtra(EXTRA_KEYS).orEmpty()
-        val titles = intent.getStringArrayExtra(EXTRA_TITLES).orEmpty()
-        val urls = intent.getStringArrayExtra(EXTRA_URLS).orEmpty()
-        items = keys.indices.map { Item(keys[it], titles.getOrElse(it) { "" }, urls.getOrElse(it) { "" }) }
+        val arr = JSONArray(intent.getStringExtra(EXTRA_ITEMS) ?: "[]")
+        items = (0 until arr.length()).map {
+            val o = arr.getJSONObject(it)
+            Item(o.optString("k"), o.optString("t"), o.optString("u"),
+                o.optString("p").ifBlank { null }, o.optString("s").ifBlank { null })
+        }
+        when (intent.getIntExtra(EXTRA_RESUME, RESUME_ASK)) {
+            RESUME_YES -> { askedResume = true; resumeDirect = true }
+            RESUME_NO -> askedResume = true
+        }
         startIndex = intent.getIntExtra(EXTRA_START, 0).coerceIn(0, (items.size - 1).coerceAtLeast(0))
         if (items.isEmpty()) finish()
     }
@@ -84,7 +108,11 @@ class VodPlayerActivity : BaseActivity() {
         p.prepare()
 
         val saved = Prefs.position(this, items[startIndex].key)
-        if (saved > 30_000 && !askedResume) {
+        if (resumeDirect) {
+            resumeDirect = false
+            if (saved > 0) p.seekTo(saved)
+            p.play()
+        } else if (saved > 30_000 && !askedResume) {
             askedResume = true
             AlertDialog.Builder(this)
                 .setTitle(R.string.resume_title)
@@ -106,6 +134,8 @@ class VodPlayerActivity : BaseActivity() {
             items.getOrNull(p.currentMediaItemIndex)?.let { cur ->
                 startIndex = p.currentMediaItemIndex
                 Prefs.savePosition(this, cur.key, p.currentPosition, p.duration)
+                Library.saveProgress(this, cur.key, cur.title, cur.url, cur.poster, cur.seriesId,
+                    p.currentPosition, p.duration)
             }
             p.release()
         }
@@ -150,6 +180,7 @@ class VodPlayerActivity : BaseActivity() {
     }
 
     override fun dispatchKeyEvent(event: KeyEvent): Boolean {
+        if (isScreenLocked) return super.dispatchKeyEvent(event)   // BaseActivity swallows keys while locked
         val k = event.keyCode
         if (k == KeyEvent.KEYCODE_MENU || k == KeyEvent.KEYCODE_INFO || k == KeyEvent.KEYCODE_SETTINGS) {
             if (event.action == KeyEvent.ACTION_UP) openMenu()

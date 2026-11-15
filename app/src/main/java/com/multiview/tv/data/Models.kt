@@ -21,6 +21,21 @@ data class Movie(
     val categoryId: String,
     val url: String,
     val rating: String?,
+    /** unix seconds the provider added it (for "recently added") */
+    val added: Long = 0,
+)
+
+/** Extra details from get_vod_info, shown on the movie info screen. */
+data class MovieDetails(
+    val plot: String?,
+    val genre: String?,
+    val director: String?,
+    val cast: String?,
+    val releaseDate: String?,
+    val duration: String?,
+    val rating: String?,
+    val backdrop: String?,
+    val poster: String?,
 )
 
 data class Series(
@@ -30,6 +45,9 @@ data class Series(
     val categoryId: String,
     val plot: String?,
     val rating: String?,
+    val added: Long = 0,
+    val genre: String? = null,
+    val releaseDate: String? = null,
 )
 
 data class Episode(

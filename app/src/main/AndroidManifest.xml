@@ -51,6 +51,11 @@
             android:windowSoftInputMode="stateHidden|adjustNothing" />
 
         <activity
+            android:name=".ui.MovieInfoActivity"
+            android:exported="false"
+            android:screenOrientation="landscape" />
+
+        <activity
             android:name=".ui.SeriesActivity"
             android:exported="false"
             android:screenOrientation="landscape" />

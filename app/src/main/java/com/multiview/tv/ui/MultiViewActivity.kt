@@ -61,6 +61,9 @@ class MultiViewActivity : BaseActivity() {
 
     override fun onStart() {
         super.onStart()
+        val hint = findViewById<View>(R.id.hint)
+        hint.visibility = View.VISIBLE
+        handler.postDelayed({ hint.animate().alpha(0f).setDuration(400).withEndAction { hint.visibility = View.GONE; hint.alpha = 1f } }, 6_000)
         refresh()
         tiles[audioSlot.coerceIn(0, visibleCount() - 1)].root.requestFocus()
         warnIfTooMany()
@@ -186,6 +189,7 @@ class MultiViewActivity : BaseActivity() {
         val opts = listOfNotNull(
             if (canAdd) getString(R.string.add_channel) else null,
             getString(R.string.change_channel), getString(R.string.fullscreen), getString(R.string.remove),
+            getString(R.string.menu_lock),
         )
         AlertDialog.Builder(this)
             .setTitle(c.name)
@@ -200,6 +204,7 @@ class MultiViewActivity : BaseActivity() {
                             .putExtra(PlayerActivity.EXTRA_GROUP, Repository.ALL_ID)
                             .putExtra(PlayerActivity.EXTRA_INDEX, idx))
                     }
+                    3 -> lockScreen()
                     2 -> {
                         slots[slot] = null
                         refresh()   // compacts; tiles whose channel changed re-tune

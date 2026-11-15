@@ -50,6 +50,11 @@ class SettingsActivity : BaseActivity() {
         row({ getString(R.string.set_clock_pos, getString(if (Settings.clockPosition(this) == "left") R.string.left else R.string.right)) }) {
             Settings.setClockPosition(this, if (Settings.clockPosition(this) == "left") "right" else "left"); applyClock()
         }
+        row({ getString(R.string.set_clock_opacity, 100 - Settings.clockOpacity(this)) }) {
+            val steps = listOf(100, 75, 50, 25)
+            val next = steps[(steps.indexOf(Settings.clockOpacity(this)) + 1).mod(steps.size)]
+            Settings.setClockOpacity(this, next); applyClock()
+        }
         row({ getString(R.string.set_clock_fmt, if (Settings.clock24h(this)) "24" else "12") }) {
             Settings.setClock24h(this, !Settings.clock24h(this)); applyClock()
         }

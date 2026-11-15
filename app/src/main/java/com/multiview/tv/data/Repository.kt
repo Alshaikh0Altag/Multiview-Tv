@@ -27,6 +27,9 @@ object Repository {
     private val moviesByCat = HashMap<String, List<Movie>>()
     private val seriesByCat = HashMap<String, List<Series>>()
     private val seriesById = HashMap<String, Series>()
+    private var cachedMovies: List<Movie>? = null
+    private var cachedSeries: List<Series>? = null
+    private val movieInfoCache = HashMap<String, MovieDetails>()
 
     private var xtream: XtreamApi? = null
     private val seriesCache = HashMap<String, SeriesDetails>()
@@ -40,6 +43,7 @@ object Repository {
         playlist = p
         vodCategories = emptyList(); seriesCategories = emptyList()
         moviesByCat.clear(); seriesByCat.clear(); seriesById.clear()
+        cachedMovies = null; cachedSeries = null; movieInfoCache.clear()
         seriesCache.clear()
         if (p.type == "xtream") {
             val api = XtreamApi(p.server, p.username, p.password, liveExt)
@@ -82,6 +86,25 @@ object Repository {
     }
 
     fun seriesById(id: String?): Series? = id?.let { seriesById[it] }
+
+    fun registerSeries(list: Collection<Series>) = list.forEach { seriesById[it.id] = it }
+
+    /** Whole movie library (streamed once, then cached). */
+    suspend fun allMovies(): List<Movie> = withContext(Dispatchers.IO) {
+        cachedMovies ?: xtream!!.vodStreams(null).also { cachedMovies = it }
+    }
+
+    suspend fun allSeries(): List<Series> = withContext(Dispatchers.IO) {
+        cachedSeries ?: xtream!!.seriesList(null).also { list -> cachedSeries = list; registerSeries(list) }
+    }
+
+    suspend fun recentMovies(limit: Int = 150) = allMovies().sortedByDescending { it.added }.take(limit)
+
+    suspend fun recentSeries(limit: Int = 150) = allSeries().sortedByDescending { it.added }.take(limit)
+
+    suspend fun movieInfo(id: String): MovieDetails = withContext(Dispatchers.IO) {
+        movieInfoCache[id] ?: xtream!!.vodInfo(id).also { movieInfoCache[id] = it }
+    }
 
     suspend fun seriesDetails(s: Series): SeriesDetails = withContext(Dispatchers.IO) {
         seriesCache[s.id] ?: xtream!!.seriesInfo(s).also { seriesCache[s.id] = it }
