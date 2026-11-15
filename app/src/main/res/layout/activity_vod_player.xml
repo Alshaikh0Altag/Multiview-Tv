@@ -11,7 +11,7 @@
         android:layout_height="match_parent"
         app:show_buffering="when_playing"
         app:show_subtitle_button="true"
-        app:controller_autoshow="true"
+        app:auto_show="true"
         app:resize_mode="fit" />
 
     <TextView
