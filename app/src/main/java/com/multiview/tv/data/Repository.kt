@@ -19,17 +19,14 @@ object Repository {
     var channels: List<Channel> = emptyList()
         private set
 
-    // movies (loaded on first open)
+    // movies & series: categories first, then each category on demand (cached)
     var vodCategories: List<Category> = emptyList()
         private set
-    var movies: List<Movie> = emptyList()
-        private set
-
-    // series (loaded on first open)
     var seriesCategories: List<Category> = emptyList()
         private set
-    var series: List<Series> = emptyList()
-        private set
+    private val moviesByCat = HashMap<String, List<Movie>>()
+    private val seriesByCat = HashMap<String, List<Series>>()
+    private val seriesById = HashMap<String, Series>()
 
     private var xtream: XtreamApi? = null
     private val seriesCache = HashMap<String, SeriesDetails>()
@@ -41,8 +38,8 @@ object Repository {
 
     suspend fun load(p: Playlist, liveExt: String = "ts"): Unit = withContext(Dispatchers.IO) {
         playlist = p
-        vodCategories = emptyList(); movies = emptyList()
-        seriesCategories = emptyList(); series = emptyList()
+        vodCategories = emptyList(); seriesCategories = emptyList()
+        moviesByCat.clear(); seriesByCat.clear(); seriesById.clear()
         seriesCache.clear()
         if (p.type == "xtream") {
             val api = XtreamApi(p.server, p.username, p.password, liveExt)
@@ -63,19 +60,28 @@ object Repository {
         Unit
     }
 
-    suspend fun loadMovies(): Unit = withContext(Dispatchers.IO) {
+    suspend fun loadVodCategories(): Unit = withContext(Dispatchers.IO) {
         val api = xtream ?: return@withContext
-        if (movies.isNotEmpty()) return@withContext
-        vodCategories = api.vodCategories()
-        movies = api.vodStreams()
+        if (vodCategories.isEmpty()) vodCategories = api.vodCategories()
     }
 
-    suspend fun loadSeries(): Unit = withContext(Dispatchers.IO) {
+    suspend fun loadSeriesCategories(): Unit = withContext(Dispatchers.IO) {
         val api = xtream ?: return@withContext
-        if (series.isNotEmpty()) return@withContext
-        seriesCategories = api.seriesCategories()
-        series = api.seriesList()
+        if (seriesCategories.isEmpty()) seriesCategories = api.seriesCategories()
     }
+
+    suspend fun moviesIn(categoryId: String): List<Movie> = withContext(Dispatchers.IO) {
+        moviesByCat[categoryId] ?: xtream!!.vodStreams(categoryId).also { moviesByCat[categoryId] = it }
+    }
+
+    suspend fun seriesIn(categoryId: String): List<Series> = withContext(Dispatchers.IO) {
+        seriesByCat[categoryId] ?: xtream!!.seriesList(categoryId).also { list ->
+            seriesByCat[categoryId] = list
+            list.forEach { seriesById[it.id] = it }
+        }
+    }
+
+    fun seriesById(id: String?): Series? = id?.let { seriesById[it] }
 
     suspend fun seriesDetails(s: Series): SeriesDetails = withContext(Dispatchers.IO) {
         seriesCache[s.id] ?: xtream!!.seriesInfo(s).also { seriesCache[s.id] = it }

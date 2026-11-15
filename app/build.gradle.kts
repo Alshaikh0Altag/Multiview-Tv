@@ -11,8 +11,10 @@ android {
         applicationId = "com.multiview.tv"
         minSdk = 23
         targetSdk = 34
-        versionCode = 1
-        versionName = "1.0"
+        // Every CI build gets a higher version so TV launchers refresh the icon/banner
+        val run = System.getenv("GITHUB_RUN_NUMBER")?.toIntOrNull() ?: 1
+        versionCode = run
+        versionName = "1.$run"
     }
 
     buildTypes {

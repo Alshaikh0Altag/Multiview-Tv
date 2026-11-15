@@ -36,7 +36,9 @@ object PlayerFactory {
             .setReadTimeoutMs(20_000)
 
         val loadControl = if (lowLatency) {
-            DefaultLoadControl.Builder().setBufferDurationsMs(4_000, 15_000, 1_500, 2_500).build()
+            // Multiview tiles: bigger re-buffer threshold so a short network dip doesn't stutter
+            DefaultLoadControl.Builder().setBufferDurationsMs(12_000, 30_000, 3_000, 6_000)
+                .setPrioritizeTimeOverSizeThresholds(true).build()
         } else {
             DefaultLoadControl.Builder().setBufferDurationsMs(10_000, 40_000, 2_000, 4_000).build()
         }
@@ -53,7 +55,7 @@ object PlayerFactory {
         player.setVideoScalingMode(C.VIDEO_SCALING_MODE_SCALE_TO_FIT)
 
         // "Data saver": cap the resolution when the stream offers several qualities (HLS)
-        val maxH = if (lowLatency && Settings.maxHeight(context) == 0) 720 else Settings.maxHeight(context)
+        val maxH = Settings.maxHeight(context)
         if (maxH > 0) {
             player.trackSelectionParameters = player.trackSelectionParameters.buildUpon()
                 .setMaxVideoSize(maxH * 16 / 9, maxH)

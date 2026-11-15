@@ -165,8 +165,8 @@ class SettingsActivity : BaseActivity() {
         lifecycleScope.launch {
             val cats: List<Category> = try {
                 when (prefix) {
-                    "m:" -> { Repository.loadMovies(); Repository.vodCategories }
-                    "s:" -> { Repository.loadSeries(); Repository.seriesCategories }
+                    "m:" -> { Repository.loadVodCategories(); Repository.vodCategories }
+                    "s:" -> { Repository.loadSeriesCategories(); Repository.seriesCategories }
                     else -> Repository.categories
                 }
             } catch (e: Exception) {

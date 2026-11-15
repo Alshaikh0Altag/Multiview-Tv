@@ -69,7 +69,7 @@ class GroupAdapter(
     override fun onBindViewHolder(h: VH, position: Int) {
         val g = items[position]
         h.title.text = if (g.locked) "🔒  ${g.name}" else g.name
-        h.count.text = g.count.toString()
+        h.count.text = if (g.count >= 0) g.count.toString() else ""
         bindState(h, g)
     }
 

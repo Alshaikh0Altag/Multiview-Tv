@@ -9,14 +9,14 @@
     android:focusable="true"
     android:padding="4dp">
 
-    <!-- TextureView so tiles can be resized/overlap safely -->
+    <!-- SurfaceView: lighter than TextureView, important with several decoders at once -->
     <androidx.media3.ui.PlayerView
         android:id="@+id/tilePlayer"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
         android:focusable="false"
         android:visibility="gone"
-        app:surface_type="texture_view"
+        app:surface_type="surface_view"
         app:use_controller="false"
         app:resize_mode="fit"
         app:show_buffering="when_playing" />
@@ -26,7 +26,7 @@
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:layout_gravity="center"
-        android:text="＋  اضغط OK لإضافة قناة"
+        android:text="@string/add_channel_hint"
         android:textColor="@color/muted"
         android:textSize="18sp" />
 

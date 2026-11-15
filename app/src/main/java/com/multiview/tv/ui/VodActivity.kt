@@ -14,11 +14,19 @@ import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import com.multiview.tv.R
 import com.multiview.tv.data.Category
+import com.multiview.tv.data.Movie
 import com.multiview.tv.data.Repository
+import com.multiview.tv.data.Series
 import com.multiview.tv.data.Settings
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
-/** Movies or series library: categories + poster grid + search. */
+/**
+ * Movies or series library.
+ * Loads the category list first, then only the category you open (cached),
+ * instead of downloading the whole library at once.
+ */
 class VodActivity : BaseActivity() {
 
     companion object {
@@ -37,7 +45,12 @@ class VodActivity : BaseActivity() {
     private lateinit var groupAdapter: GroupAdapter
     private lateinit var posterAdapter: PosterAdapter
 
-    private var currentGroup = Repository.ALL_ID
+    private var currentGroup: String? = null
+    private var movies: List<Movie> = emptyList()
+    private var seriesList: List<Series> = emptyList()
+    private var loadJob: Job? = null
+
+    private val prefix get() = if (mode == MODE_MOVIES) "m:" else "s:"
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -52,98 +65,109 @@ class VodActivity : BaseActivity() {
         findViewById<TextView>(R.id.vodTitle).setText(if (mode == MODE_MOVIES) R.string.movies else R.string.series)
 
         groupAdapter = GroupAdapter(
-            onFocus = { g -> if (g.id != currentGroup && !g.locked) selectGroup(g.id) },
-            onClick = { g -> withPin(prefix + g.id) { selectGroup(g.id); buildGroups() } },
+            onFocus = { g -> if (!g.locked && g.id != currentGroup) openGroup(g.id, delayMs = 350) },
+            onClick = { g -> withPin(prefix + g.id) { buildGroups(); openGroup(g.id, delayMs = 0) } },
         )
         posterAdapter = PosterAdapter { open(it) }
         groups.layoutManager = LinearLayoutManager(this)
         groups.adapter = groupAdapter
         posters.layoutManager = GridLayoutManager(this, 6)
         posters.adapter = posterAdapter
+        posters.setItemViewCacheSize(24)
 
         search.addTextChangedListener(object : TextWatcher {
             override fun beforeTextChanged(s: CharSequence?, a: Int, b: Int, c: Int) {}
             override fun onTextChanged(s: CharSequence?, a: Int, b: Int, c: Int) {}
-            override fun afterTextChanged(s: Editable?) = filter()
+            override fun afterTextChanged(s: Editable?) = showItems()
         })
 
-        load()
-    }
-
-    private fun load() {
-        loading.visibility = View.VISIBLE
-        empty.visibility = View.GONE
-        lifecycleScope.launch {
-            try {
-                if (mode == MODE_MOVIES) Repository.loadMovies() else Repository.loadSeries()
-                buildGroups()
-                filter()
-                groups.post { groups.getChildAt(0)?.requestFocus() }
-            } catch (e: Exception) {
-                empty.text = getString(R.string.load_failed, e.message ?: e.javaClass.simpleName)
-                empty.visibility = View.VISIBLE
-            } finally {
-                loading.visibility = View.GONE
-            }
-        }
-    }
-
-    private val prefix get() = if (mode == MODE_MOVIES) "m:" else "s:"
-
-    private fun selectGroup(id: String) {
-        currentGroup = id
-        groupAdapter.selectedId = id
-        filter()
+        loadCategories()
     }
 
     private fun categories(): List<Category> =
         if (mode == MODE_MOVIES) Repository.vodCategories else Repository.seriesCategories
 
+    private fun loadCategories() {
+        setLoading(true)
+        lifecycleScope.launch {
+            try {
+                if (mode == MODE_MOVIES) Repository.loadVodCategories() else Repository.loadSeriesCategories()
+                buildGroups()
+                // Open the first category that is not locked
+                val first = groupAdapter.items.firstOrNull { !it.locked }
+                if (first != null) openGroup(first.id, delayMs = 0) else setLoading(false)
+                groups.post { groups.getChildAt(0)?.requestFocus() }
+            } catch (e: Exception) {
+                showError(e)
+            }
+        }
+    }
+
     private fun buildGroups() {
-        val counts: Map<String, Int> = if (mode == MODE_MOVIES)
-            Repository.movies.groupingBy { it.categoryId }.eachCount()
-        else
-            Repository.series.groupingBy { it.categoryId }.eachCount()
         val hidden = Settings.hiddenGroups(this)
         val locked = Settings.lockedGroups(this)
-        val excluded = excludedCategories(prefix)
-        val total = counts.filterKeys { it !in excluded }.values.sum()
-        val list = mutableListOf(GroupItem(Repository.ALL_ID, getString(R.string.all), total))
-        categories().forEach { c ->
-            val key = prefix + c.id
-            if (key in hidden) return@forEach
-            counts[c.id]?.let { n -> list += GroupItem(c.id, c.name, n, locked = key in locked && key !in unlockedGroups) }
-        }
-        groupAdapter.items = list
+        groupAdapter.items = categories()
+            .filter { prefix + it.id !in hidden }
+            .map { c ->
+                val key = prefix + c.id
+                GroupItem(c.id, c.name, count = -1, locked = key in locked && key !in unlockedGroups)
+            }
         groupAdapter.selectedId = currentGroup
     }
 
-    private fun filter() {
-        val q = search.text.toString().trim()
-        val excluded = excludedCategories(prefix)
-        val inGroup: (String) -> Boolean = { cat ->
-            if (currentGroup == Repository.ALL_ID) cat !in excluded else cat == currentGroup
+    /** Loads one category (debounced while the remote scrolls through the list). */
+    private fun openGroup(id: String, delayMs: Long) {
+        currentGroup = id
+        groupAdapter.selectedId = id
+        loadJob?.cancel()
+        loadJob = lifecycleScope.launch {
+            if (delayMs > 0) delay(delayMs)
+            setLoading(true)
+            try {
+                if (mode == MODE_MOVIES) movies = Repository.moviesIn(id)
+                else seriesList = Repository.seriesIn(id)
+                if (currentGroup == id) showItems()
+            } catch (e: Exception) {
+                if (currentGroup == id) showError(e)
+            }
         }
+    }
+
+    private fun showItems() {
+        val q = search.text.toString().trim()
         val items = if (mode == MODE_MOVIES) {
-            Repository.movies.asSequence()
-                .filter { inGroup(it.categoryId) && (q.isEmpty() || it.name.contains(q, ignoreCase = true)) }
+            movies.asSequence()
+                .filter { q.isEmpty() || it.name.contains(q, ignoreCase = true) }
                 .map { PosterItem(it.id, it.name, it.poster, it.rating) }.toList()
         } else {
-            Repository.series.asSequence()
-                .filter { inGroup(it.categoryId) && (q.isEmpty() || it.name.contains(q, ignoreCase = true)) }
+            seriesList.asSequence()
+                .filter { q.isEmpty() || it.name.contains(q, ignoreCase = true) }
                 .map { PosterItem(it.id, it.name, it.cover, it.rating) }.toList()
         }
+        setLoading(false)
         posterAdapter.items = items
         posters.scrollToPosition(0)
-        if (loading.visibility != View.VISIBLE) {
-            empty.text = getString(R.string.nothing_found)
-            empty.visibility = if (items.isEmpty()) View.VISIBLE else View.GONE
+        empty.text = getString(R.string.nothing_found)
+        empty.visibility = if (items.isEmpty()) View.VISIBLE else View.GONE
+    }
+
+    private fun setLoading(on: Boolean) {
+        loading.visibility = if (on) View.VISIBLE else View.GONE
+        if (on) {
+            empty.visibility = View.GONE
+            posterAdapter.items = emptyList()
         }
+    }
+
+    private fun showError(e: Exception) {
+        setLoading(false)
+        empty.text = getString(R.string.load_failed, e.message ?: e.javaClass.simpleName)
+        empty.visibility = View.VISIBLE
     }
 
     private fun open(p: PosterItem) {
         if (mode == MODE_MOVIES) {
-            val m = Repository.movies.firstOrNull { it.id == p.id } ?: return
+            val m = movies.firstOrNull { it.id == p.id } ?: return
             startActivity(VodPlayerActivity.intent(this, listOf(VodPlayerActivity.Item("m:${m.id}", m.name, m.url)), 0))
         } else {
             startActivity(Intent(this, SeriesActivity::class.java).putExtra(SeriesActivity.EXTRA_ID, p.id))

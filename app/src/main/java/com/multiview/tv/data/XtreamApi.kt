@@ -82,8 +82,9 @@ class XtreamApi(
 
     fun vodCategories() = categories("get_vod_categories")
 
-    fun vodStreams(): List<Movie> {
-        val arr = array("get_vod_streams", timeout = 45_000)
+    /** Movies of one category (fast) — loading every movie at once is too heavy for TV boxes. */
+    fun vodStreams(categoryId: String): List<Movie> {
+        val arr = array("get_vod_streams", mapOf("category_id" to categoryId), timeout = 45_000)
         return (0 until arr.length()).map {
             val o = arr.getJSONObject(it)
             val id = o.optString("stream_id")
@@ -103,8 +104,8 @@ class XtreamApi(
 
     fun seriesCategories() = categories("get_series_categories")
 
-    fun seriesList(): List<Series> {
-        val arr = array("get_series", timeout = 45_000)
+    fun seriesList(categoryId: String): List<Series> {
+        val arr = array("get_series", mapOf("category_id" to categoryId), timeout = 45_000)
         return (0 until arr.length()).map {
             val o = arr.getJSONObject(it)
             Series(

@@ -10,6 +10,7 @@ import android.view.WindowManager
 import android.widget.TextView
 import android.widget.Toast
 import androidx.appcompat.app.AlertDialog
+import androidx.media3.common.C
 import androidx.media3.common.PlaybackException
 import androidx.media3.common.Player
 import androidx.media3.exoplayer.ExoPlayer
@@ -52,8 +53,9 @@ class MultiViewActivity : BaseActivity() {
 
         tiles.forEachIndexed { i, t ->
             t.root.setOnFocusChangeListener { _, has -> if (has) setAudio(i) }
+            // OK or long-press: options (add another channel, change, full screen, remove)
             t.root.setOnClickListener { if (slots[i] == null) pickChannel(i) else tileOptions(i) }
-            t.root.setOnLongClickListener { if (slots[i] != null) tileOptions(i); true }
+            t.root.setOnLongClickListener { if (slots[i] == null) pickChannel(i) else tileOptions(i); true }
         }
     }
 
@@ -70,13 +72,13 @@ class MultiViewActivity : BaseActivity() {
         tiles.forEach { stop(it) }
     }
 
-    /** Filled slots first, then one empty slot for adding (max 4). */
+    /** Filled slots first. Only filled tiles are shown (one empty tile when nothing is playing). */
     private fun compact() {
         val filled = slots.filterNotNull()
         for (i in slots.indices) slots[i] = filled.getOrNull(i)
     }
 
-    private fun visibleCount() = (slots.count { it != null } + 1).coerceAtMost(4)
+    private fun visibleCount() = slots.count { it != null }.coerceIn(1, 4)
 
     private fun refresh() {
         compact()
@@ -102,6 +104,18 @@ class MultiViewActivity : BaseActivity() {
         setAudio(audioSlot)
     }
 
+    private fun applyAudio(i: Int, p: ExoPlayer) {
+        val on = i == audioSlot
+        p.volume = if (on) 1f else 0f
+        // Muted tiles don't decode audio at all — saves CPU and reduces stutter
+        val disabled = p.trackSelectionParameters.disabledTrackTypes.contains(C.TRACK_TYPE_AUDIO)
+        if (disabled == on) {
+            p.trackSelectionParameters = p.trackSelectionParameters.buildUpon()
+                .setTrackTypeDisabled(C.TRACK_TYPE_AUDIO, !on)
+                .build()
+        }
+    }
+
     private fun play(i: Int, t: Tile, c: Channel) {
         val p = t.player ?: PlayerFactory.create(this, lowLatency = true).also { player ->
             player.addListener(object : Player.Listener {
@@ -113,7 +127,7 @@ class MultiViewActivity : BaseActivity() {
             t.player = player
             t.playerView.player = player
         }
-        p.volume = if (i == audioSlot) 1f else 0f
+        applyAudio(i, p)
         p.playUrl(c.url)
         t.playingId = c.id
     }
@@ -129,7 +143,7 @@ class MultiViewActivity : BaseActivity() {
         audioSlot = slot
         tiles.forEachIndexed { i, t ->
             val on = i == slot && slots[i] != null
-            t.player?.volume = if (on) 1f else 0f
+            t.player?.let { applyAudio(i, it) }
             t.audio.visibility = if (on) View.VISIBLE else View.GONE
         }
     }
@@ -168,11 +182,17 @@ class MultiViewActivity : BaseActivity() {
 
     private fun tileOptions(slot: Int) {
         val c = slots[slot] ?: return
-        val opts = arrayOf(getString(R.string.change_channel), getString(R.string.fullscreen), getString(R.string.remove))
+        val canAdd = slots.count { it != null } < 4
+        val opts = listOfNotNull(
+            if (canAdd) getString(R.string.add_channel) else null,
+            getString(R.string.change_channel), getString(R.string.fullscreen), getString(R.string.remove),
+        )
         AlertDialog.Builder(this)
             .setTitle(c.name)
-            .setItems(opts) { _, which ->
+            .setItems(opts.toTypedArray()) { _, picked ->
+                val which = if (canAdd) picked - 1 else picked
                 when (which) {
+                    -1 -> pickChannel(slots.indexOfFirst { it == null })
                     0 -> pickChannel(slot)
                     1 -> {
                         val idx = Repository.channelsIn(Repository.ALL_ID, emptySet(), excludedCategories("l:")).indexOfFirst { it.id == c.id }.coerceAtLeast(0)
@@ -183,6 +203,7 @@ class MultiViewActivity : BaseActivity() {
                     2 -> {
                         slots[slot] = null
                         refresh()   // compacts; tiles whose channel changed re-tune
+                        audioSlot = 0
                         tiles[0].root.requestFocus()
                     }
                 }
@@ -199,7 +220,7 @@ class MultiViewActivity : BaseActivity() {
     override fun onKeyDown(keyCode: Int, event: KeyEvent): Boolean {
         if (keyCode == KeyEvent.KEYCODE_MENU) {
             val focused = tiles.indexOfFirst { it.root.hasFocus() }
-            if (focused >= 0 && slots[focused] != null) tileOptions(focused)
+            if (focused >= 0) { if (slots[focused] != null) tileOptions(focused) else pickChannel(focused) }
             return true
         }
         return super.onKeyDown(keyCode, event)

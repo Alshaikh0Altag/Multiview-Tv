@@ -44,6 +44,6 @@
         android:paddingTop="8dp"
         android:paddingEnd="16dp"
         android:paddingBottom="8dp"
-        android:text="الأسهم: التنقل والصوت · OK: إضافة/تغيير · ضغط مطوّل أو زر القائمة: خيارات"
+        android:text="@string/multiview_hint"
         android:textSize="14sp" />
 </FrameLayout>

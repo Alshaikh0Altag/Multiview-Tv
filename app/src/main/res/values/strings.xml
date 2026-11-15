@@ -25,7 +25,7 @@
     <string name="change_channel">تغيير القناة</string>
     <string name="remove">إزالة</string>
     <string name="fullscreen">ملء الشاشة</string>
-    <string name="search">بحث</string>
+    <string name="search">بحث في هذا القسم</string>
     <string name="multiview_full">كل الشاشات الأربع مشغولة</string>
     <string name="added_to_slot">أُضيفت للشاشة %1$d</string>
     <string name="conn_warning">تنبيه: اشتراكك يسمح بـ %1$d اتصال فقط، وقد تتوقف بعض الشاشات.</string>
@@ -114,4 +114,6 @@
     <string name="live_badge">مباشر</string>
     <string name="main_hint">OK: مشاهدة  ·  ضغط مطوّل: إضافة للمشاهدة المتعددة  ·  Menu: المفضلة</string>
     <string name="channels_count">%1$d قناة</string>
+    <string name="add_channel">إضافة قناة أخرى</string>
+    <string name="multiview_hint">الأسهم: التنقل ونقل الصوت  ·  OK أو ضغط مطوّل: إضافة قناة / تغيير / ملء الشاشة / إزالة</string>
 </resources>

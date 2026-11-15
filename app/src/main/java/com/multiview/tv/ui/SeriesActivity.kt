@@ -38,7 +38,7 @@ class SeriesActivity : BaseActivity() {
         setContentView(R.layout.activity_series)
 
         val id = intent.getStringExtra(EXTRA_ID)
-        val s = Repository.series.firstOrNull { it.id == id }
+        val s = Repository.seriesById(id)
         if (s == null) { finish(); return }
 
         seasons = findViewById(R.id.seasons)
