@@ -16,7 +16,7 @@
             android:id="@+id/cover"
             android:layout_width="match_parent"
             android:layout_height="300dp"
-            android:background="@color/surface2"
+            android:background="@drawable/bg_logo"
             android:importantForAccessibility="no"
             android:scaleType="centerCrop" />
 
@@ -41,6 +41,7 @@
 
     <androidx.recyclerview.widget.RecyclerView
         android:id="@+id/seasons"
+        android:descendantFocusability="afterDescendants"
         android:layout_width="200dp"
         android:layout_height="match_parent"
         android:paddingStart="10dp"
@@ -54,6 +55,7 @@
 
         <androidx.recyclerview.widget.RecyclerView
             android:id="@+id/episodes"
+            android:descendantFocusability="afterDescendants"
             android:layout_width="match_parent"
             android:layout_height="match_parent"
             android:clipToPadding="false"

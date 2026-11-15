@@ -12,18 +12,21 @@
         android:id="@+id/epTitle"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
+        android:duplicateParentState="true"
         android:ellipsize="end"
+        android:fontFamily="sans-serif-medium"
         android:maxLines="1"
-        android:textSize="17sp"
-        android:textStyle="bold" />
+        android:textColor="@color/row_text"
+        android:textSize="17sp" />
 
     <TextView
         android:id="@+id/epSub"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:layout_marginTop="4dp"
+        android:duplicateParentState="true"
         android:ellipsize="end"
         android:maxLines="2"
-        android:textColor="@color/muted"
+        android:textColor="@color/row_sub"
         android:textSize="14sp" />
 </LinearLayout>

@@ -31,6 +31,10 @@ class MainActivity : BaseActivity() {
     private lateinit var channels: RecyclerView
     private lateinit var preview: PlayerView
     private lateinit var chTitle: TextView
+    private lateinit var chGroup: TextView
+    private lateinit var groupTitle: TextView
+    private var stateKey = ""
+    private var firstFocusDone = false
 
     private lateinit var groupAdapter: GroupAdapter
     private lateinit var channelAdapter: ChannelAdapter
@@ -50,6 +54,12 @@ class MainActivity : BaseActivity() {
         channels = findViewById(R.id.channels)
         preview = findViewById(R.id.preview)
         chTitle = findViewById(R.id.chTitle)
+        chGroup = findViewById(R.id.chGroup)
+        groupTitle = findViewById(R.id.groupTitle)
+        findViewById<Button>(R.id.navLive).apply {
+            isSelected = true
+            setOnClickListener { channels.getChildAt(0)?.requestFocus() ?: groups.getChildAt(0)?.requestFocus() }
+        }
 
         groupAdapter = GroupAdapter(
             onFocus = { g -> if (g.id != currentGroup) focusGroup(g) },
@@ -80,9 +90,20 @@ class MainActivity : BaseActivity() {
     override fun onResume() {
         super.onResume()
         if (!::groupAdapter.isInitialized) return
-        // Settings may have changed hidden / locked groups
-        buildGroups()
-        showGroup(if (isGroupOpen(currentGroup)) currentGroup else Repository.ALL_ID)
+        // Rebuild only when settings / favorites changed — rebuilding resets the lists and the remote's focus
+        val key = listOf(Settings.hiddenGroups(this), Settings.lockedGroups(this), unlockedGroups, Prefs.favorites(this))
+            .joinToString("|") { it.sorted().joinToString(",") }
+        if (key != stateKey) {
+            stateKey = key
+            buildGroups()
+            showGroup(if (isGroupOpen(currentGroup)) currentGroup else Repository.ALL_ID)
+        }
+        if (!firstFocusDone) {
+            firstFocusDone = true
+            channels.post {
+                (channels.getChildAt(0) ?: groups.getChildAt(0))?.requestFocus()
+            }
+        }
     }
 
     private fun isGroupOpen(id: String): Boolean {
@@ -131,6 +152,9 @@ class MainActivity : BaseActivity() {
         channelAdapter.favorites = favs
         channelAdapter.items = currentList(favs)
         channels.scrollToPosition(0)
+        val name = groupAdapter.items.firstOrNull { it.id == id }?.name ?: ""
+        groupTitle.text = name
+        chGroup.text = getString(R.string.channels_count, channelAdapter.itemCount)
     }
 
     private fun currentList(favs: Set<String> = Prefs.favorites(this)) =
@@ -140,7 +164,9 @@ class MainActivity : BaseActivity() {
         focusedChannel = c
         handler.removeCallbacks(previewRunnable)
         handler.postDelayed(previewRunnable, 700)   // debounce while scrolling
-        chTitle.text = "${c.number}  ${c.name}"
+        chTitle.text = c.name
+        val cat = Repository.categories.firstOrNull { it.id == c.categoryId }?.name
+        chGroup.text = listOfNotNull("#${c.number}", cat).joinToString("  ·  ")
     }
 
     private fun startPreview(c: Channel) {
@@ -197,9 +223,7 @@ class MainActivity : BaseActivity() {
             focusedChannel?.let {
                 val added = Prefs.toggleFavorite(this, it.id)
                 Toast.makeText(this, if (added) R.string.added_fav else R.string.removed_fav, Toast.LENGTH_SHORT).show()
-                channelAdapter.favorites = Prefs.favorites(this)
-                channelAdapter.notifyDataSetChanged()
-                buildGroups()
+                channelAdapter.favorites = Prefs.favorites(this)   // payload update keeps focus
             }
             return true
         }

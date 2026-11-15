@@ -3,7 +3,7 @@
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
     android:layout_margin="6dp"
-    android:background="@drawable/bg_row"
+    android:background="@drawable/bg_poster"
     android:focusable="true"
     android:orientation="vertical"
     android:padding="6dp">
@@ -12,7 +12,7 @@
         android:id="@+id/poster"
         android:layout_width="match_parent"
         android:layout_height="210dp"
-        android:background="@color/surface2"
+        android:background="@drawable/bg_logo"
         android:importantForAccessibility="no"
         android:scaleType="centerCrop" />
 
@@ -22,14 +22,19 @@
         android:layout_height="wrap_content"
         android:layout_marginTop="8dp"
         android:ellipsize="end"
+        android:fontFamily="sans-serif-medium"
         android:maxLines="2"
         android:minLines="2"
-        android:textSize="15sp" />
+        android:paddingStart="2dp"
+        android:paddingEnd="2dp"
+        android:textColor="@color/text"
+        android:textSize="14sp" />
 
     <TextView
         android:id="@+id/posterSub"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
+        android:paddingStart="2dp"
         android:textColor="@color/live"
-        android:textSize="13sp" />
+        android:textSize="12sp" />
 </LinearLayout>

@@ -7,6 +7,7 @@ import android.widget.ImageView
 import android.widget.TextView
 import androidx.recyclerview.widget.RecyclerView
 import coil.load
+import coil.transform.RoundedCornersTransformation
 import com.multiview.tv.R
 
 data class PosterItem(val id: String, val title: String, val image: String?, val sub: String?)
@@ -14,6 +15,10 @@ data class PosterItem(val id: String, val title: String, val image: String?, val
 class PosterAdapter(
     private val onClick: (PosterItem) -> Unit,
 ) : RecyclerView.Adapter<PosterAdapter.VH>() {
+
+    init { setHasStableIds(true) }
+
+    override fun getItemId(position: Int) = items[position].id.hashCode().toLong()
 
     var items: List<PosterItem> = emptyList()
         set(value) { field = value; notifyDataSetChanged() }
@@ -24,8 +29,18 @@ class PosterAdapter(
         val sub: TextView = v.findViewById(R.id.posterSub)
     }
 
-    override fun onCreateViewHolder(parent: ViewGroup, viewType: Int) =
-        VH(LayoutInflater.from(parent.context).inflate(R.layout.item_poster, parent, false))
+    override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): VH {
+        val h = VH(LayoutInflater.from(parent.context).inflate(R.layout.item_poster, parent, false))
+        h.itemView.setOnClickListener {
+            h.bindingAdapterPosition.takeIf { it >= 0 }?.let { onClick(items[it]) }
+        }
+        h.itemView.setOnFocusChangeListener { v, has ->
+            val s = if (has) 1.06f else 1f
+            v.animate().scaleX(s).scaleY(s).setDuration(120).start()
+            v.elevation = if (has) 12f else 0f
+        }
+        return h
+    }
 
     override fun getItemCount() = items.size
 
@@ -33,13 +48,14 @@ class PosterAdapter(
         val p = items[position]
         h.title.text = p.title
         h.sub.text = p.sub?.let { "★ $it" } ?: ""
-        if (p.image != null) h.poster.load(p.image) { crossfade(false) } else h.poster.setImageDrawable(null)
-        h.itemView.setOnClickListener {
-            h.bindingAdapterPosition.takeIf { it >= 0 }?.let { onClick(items[it]) }
-        }
-        h.itemView.setOnFocusChangeListener { v, has ->
-            val s = if (has) 1.06f else 1f
-            v.animate().scaleX(s).scaleY(s).setDuration(120).start()
+        if (p.image != null) {
+            h.poster.load(p.image) {
+                crossfade(false)
+                error(R.drawable.ic_movie)
+                transformations(RoundedCornersTransformation(16f))
+            }
+        } else {
+            h.poster.setImageResource(R.drawable.ic_movie)
         }
     }
 }

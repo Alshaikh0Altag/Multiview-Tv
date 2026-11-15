@@ -110,4 +110,8 @@
     <string name="set_lock_title">اختر ما تريد قفله بالرمز</string>
     <string name="set_change_pin">تغيير الرمز السري</string>
     <string name="set_live_format">صيغة البث المباشر (Xtream): %1$s</string>
+    <string name="groups">المجموعات</string>
+    <string name="live_badge">مباشر</string>
+    <string name="main_hint">OK: مشاهدة  ·  ضغط مطوّل: إضافة للمشاهدة المتعددة  ·  Menu: المفضلة</string>
+    <string name="channels_count">%1$d قناة</string>
 </resources>
