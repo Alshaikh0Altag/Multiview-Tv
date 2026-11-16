@@ -88,6 +88,7 @@ class HomeActivity : BaseActivity() {
         }
         maybeAutoplay()
         checkForUpdates(manual = false)
+        showLastCrash()
     }
 
     override fun onResume() {
@@ -156,13 +157,16 @@ class HomeActivity : BaseActivity() {
         val rows = ArrayList<Row>()
         for (r in Settings.homeRows(this)) when (r) {
             "matches" -> {
-                val m = matches
+                val mode = Settings.matchesMode(this)
+                val m = matches?.let { Matches.arrange(it, mode, Settings.matchesSort(this)) }
                 val cards: List<Card> = when {
                     m == null -> listOf(Card.Message(getString(R.string.loading_matches)))
-                    m.isEmpty() -> listOf(Card.Message(getString(R.string.no_matches)))
+                    m.isEmpty() -> listOf(Card.Message(getString(
+                        if (mode == "live") R.string.no_live_matches else R.string.no_matches)))
                     else -> m.map { Card.MatchCard(it) }
                 }
-                rows += Row("matches", getString(R.string.today_matches), cards)
+                val suffix = when (mode) { "live" -> " · " + getString(R.string.filter_live); "upcoming" -> " · " + getString(R.string.filter_upcoming); else -> "" }
+                rows += Row("matches", getString(R.string.today_matches) + suffix, cards)
             }
             "continue" -> {
                 val items = (Library.continueWatching(this, "m:") + Library.continueWatching(this, "e:"))
@@ -237,12 +241,57 @@ class HomeActivity : BaseActivity() {
             is Card.MovieCard -> startActivity(MovieInfoActivity.intent(this, card.m))
             is Card.SeriesCard -> startActivity(Intent(this, SeriesActivity::class.java).putExtra(SeriesActivity.EXTRA_ID, card.s.id))
             is Card.MatchCard -> openMatch(card.m)
-            is Card.Message -> Unit
+            is Card.Message -> if (matches != null) matchesMenu()
         }
     }
 
     private fun onCardLong(card: Card) {
-        if (card is Card.ChannelCard) ChannelActions.show(this, card.c) { signature = ""; buildRows() }
+        when (card) {
+            is Card.ChannelCard -> ChannelActions.show(this, card.c) { signature = ""; buildRows() }
+            is Card.MatchCard, is Card.Message -> matchesMenu()
+            else -> Unit
+        }
+    }
+
+    /** Long-press a match: show all / live only / not finished, ordered by time or importance. */
+    private fun matchesMenu() {
+        val modes = listOf("all", "live", "upcoming")
+        val sorts = listOf("importance", "time")
+        val labels = listOf(
+            getString(R.string.filter_all), getString(R.string.filter_live), getString(R.string.filter_upcoming),
+            getString(R.string.sort_importance), getString(R.string.sort_time),
+        )
+        val curMode = Settings.matchesMode(this)
+        val curSort = Settings.matchesSort(this)
+        val marked = labels.mapIndexed { i, l ->
+            val on = if (i < 3) modes[i] == curMode else sorts[i - 3] == curSort
+            (if (on) "✓ " else "    ") + l
+        }
+        AlertDialog.Builder(this)
+            .setTitle(R.string.today_matches)
+            .setItems(marked.toTypedArray()) { _, i ->
+                if (i < 3) Settings.setMatchesMode(this, modes[i]) else Settings.setMatchesSort(this, sorts[i - 3])
+                buildRows()
+            }
+            .show()
+    }
+
+    private fun showLastCrash() {
+        val report = com.multiview.tv.App.takeLastCrash(this) ?: return
+        val tv = TextView(this).apply {
+            text = report
+            textSize = 11f
+            typeface = android.graphics.Typeface.MONOSPACE
+            textDirection = View.TEXT_DIRECTION_LTR
+            val p = (16 * resources.displayMetrics.density).toInt()
+            setPadding(p, p, p, p)
+            setTextColor(getColor(R.color.text))
+        }
+        AlertDialog.Builder(this)
+            .setTitle(R.string.crash_title)
+            .setView(android.widget.ScrollView(this).apply { addView(tv) })
+            .setPositiveButton(android.R.string.ok, null)
+            .show()
     }
 
     private fun openMatch(m: Match) {

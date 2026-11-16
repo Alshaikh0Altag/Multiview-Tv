@@ -250,4 +250,11 @@
     <string name="md_penalty">ركلة جزاء</string>
     <string name="md_no_stats">تظهر الإحصائيات بعد بداية المباراة</string>
     <string name="md_broadcasters">الناقل حسب ESPN: %1$s</string>
+    <string name="filter_all">كل المباريات</string>
+    <string name="filter_live">المباشرة الآن فقط</string>
+    <string name="filter_upcoming">التي لم تنتهِ</string>
+    <string name="sort_importance">ترتيب حسب الأهمية</string>
+    <string name="sort_time">ترتيب حسب الوقت</string>
+    <string name="no_live_matches">لا توجد مباريات مباشرة الآن — اضغط لتغيير الفلتر</string>
+    <string name="crash_title">حدث خطأ في المرة السابقة — صوّر هذه الرسالة وأرسلها</string>
 </resources>

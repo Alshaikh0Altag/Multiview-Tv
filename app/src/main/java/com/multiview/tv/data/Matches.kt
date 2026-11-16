@@ -232,18 +232,64 @@ object Matches {
 
     /**
      * Channels that may carry the match: channel names that mention a team or a broadcaster,
-     * then the sports channels of the subscription.
+     * then the sports channels of the subscription. Linear in the number of channels.
      */
     fun candidateChannels(m: Match, channels: List<Channel>, categories: List<Category>): List<Channel> {
-        fun norm(s: String) = s.lowercase(Locale.ROOT).replace(Regex("[^\\p{L}\\p{N}]"), "")
+        val clean = Regex("[^\\p{L}\\p{N}]")
+        fun norm(s: String) = s.lowercase(Locale.ROOT).replace(clean, "")
         val words = (listOf(m.home.name, m.away.name, m.home.shortName, m.away.shortName) + m.broadcasts)
             .map(::norm).filter { it.length >= 4 }.distinct()
-        val direct = channels.filter { ch -> val n = norm(ch.name); words.any { n.contains(it) } }
         val sportsCats = categories.filter {
             val n = it.name.lowercase(Locale.ROOT)
             listOf("sport", "رياض", "bein", "ssc", "football", "كرة", "thmanyah", "ثمانية", "shahid").any { k -> n.contains(k) }
-        }.map { it.id }.toSet()
-        val sports = channels.filter { it.categoryId in sportsCats && it !in direct }
-        return (direct + sports).take(200)
+        }.mapTo(HashSet()) { it.id }
+
+        val direct = ArrayList<Channel>()
+        val sports = ArrayList<Channel>()
+        for (ch in channels) {
+            val n = norm(ch.name)
+            when {
+                words.any { n.contains(it) } -> if (direct.size < 60) direct += ch
+                ch.categoryId in sportsCats -> if (sports.size < 140) sports += ch
+            }
+            if (direct.size >= 60 && sports.size >= 140) break
+        }
+        return direct + sports
+    }
+
+    // ---------- filter & order ----------
+
+    /** Higher = more important. */
+    private val leagueWeight = mapOf(
+        "uefa.champions" to 100, "fifa.world" to 100, "fifa.cwc" to 95, "ksa.1" to 90, "eng.1" to 88,
+        "esp.1" to 87, "afc.champions" to 85, "ita.1" to 80, "ger.1" to 78, "fra.1" to 75, "uefa.europa" to 72,
+        "ksa.kings.cup" to 70, "uefa.euro" to 95, "afc.asian.cup" to 90, "caf.nations" to 80, "egy.1" to 65,
+        "esp.copa_del_rey" to 62, "eng.fa" to 62, "uefa.nations" to 60, "uefa.europa.conf" to 55,
+    )
+    private val bigTeams = listOf(
+        "real madrid", "barcelona", "al hilal", "al-hilal", "al nassr", "al-nassr", "al ittihad", "al-ittihad",
+        "al ahli", "al-ahli", "manchester city", "liverpool", "arsenal", "manchester united", "chelsea",
+        "bayern", "paris saint-germain", "psg", "juventus", "inter", "ac milan", "atletico", "al ahly", "zamalek",
+        "saudi arabia", "argentina", "brazil", "france", "spain", "england", "portugal", "germany", "morocco", "egypt",
+    )
+
+    fun importance(m: Match): Int {
+        var w = leagueWeight[m.leagueCode] ?: if (m.leagueCode.startsWith("fifa.worldq")) 58 else 40
+        val names = (m.home.name + " " + m.away.name).lowercase(Locale.ROOT)
+        bigTeams.forEach { if (names.contains(it)) w += 15 }
+        if (m.isLive) w += 50
+        if (m.isFinished) w -= 60
+        return w
+    }
+
+    /** mode: "all" | "live" | "upcoming";  sort: "time" | "importance" */
+    fun arrange(list: List<Match>, mode: String, sort: String): List<Match> {
+        val filtered = when (mode) {
+            "live" -> list.filter { it.isLive }
+            "upcoming" -> list.filter { !it.isFinished }
+            else -> list
+        }
+        return if (sort == "importance") filtered.sortedWith(compareByDescending<Match> { importance(it) }.thenBy { it.start })
+        else filtered
     }
 }

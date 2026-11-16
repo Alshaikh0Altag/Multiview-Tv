@@ -23,7 +23,9 @@ import com.multiview.tv.data.MatchDetails
 import com.multiview.tv.data.Matches
 import com.multiview.tv.data.Repository
 import com.multiview.tv.data.Settings
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -51,9 +53,19 @@ class MatchActivity : BaseActivity() {
         val list = findViewById<RecyclerView>(R.id.mdChannels)
         list.layoutManager = LinearLayoutManager(this, LinearLayoutManager.HORIZONTAL, false)
         list.adapter = channelAdapter
-        val all = Repository.channelsIn(Repository.ALL_ID, emptySet(), excludedCategories("l:"))
-        channelAdapter.items = Matches.candidateChannels(match, all, Repository.categories)
-        list.post { list.getChildAt(0)?.requestFocus() }
+        // finding the channels scans the whole list — do it off the main thread
+        val excluded = excludedCategories("l:")
+        lifecycleScope.launch {
+            val found = withContext(Dispatchers.Default) {
+                runCatching {
+                    val all = Repository.channelsIn(Repository.ALL_ID, emptySet(), excluded)
+                    Matches.candidateChannels(match, all, Repository.categories)
+                }.getOrDefault(emptyList())
+            }
+            channelAdapter.items = found
+            updateChannelsSection()
+            list.post { list.getChildAt(0)?.requestFocus() }
+        }
 
         showHeader(match)
         showBroadcasters(match.broadcasts)
@@ -78,7 +90,15 @@ class MatchActivity : BaseActivity() {
             match = d.match
             showHeader(d.match)
             showDetails(d)
+            updateChannelsSection()
         }
+    }
+
+    /** No point offering channels once the match is over. */
+    private fun updateChannelsSection() {
+        val show = !match.isFinished && channelAdapter.itemCount > 0
+        findViewById<View>(R.id.mdWatchTitle).visibility = if (show) View.VISIBLE else View.GONE
+        findViewById<View>(R.id.mdChannels).visibility = if (show) View.VISIBLE else View.GONE
     }
 
     private fun showHeader(m: Match) {

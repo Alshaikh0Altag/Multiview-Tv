@@ -162,6 +162,12 @@ object Settings {
         sp(c).edit().putString("pinned_vod", o.toString()).apply()
     }
 
+    /** Today's matches: "all" | "live" | "upcoming", and "time" | "importance" */
+    fun matchesMode(c: Context) = sp(c).getString("matches_mode", "all")!!
+    fun setMatchesMode(c: Context, v: String) = sp(c).edit().putString("matches_mode", v).apply()
+    fun matchesSort(c: Context) = sp(c).getString("matches_sort", "importance")!!
+    fun setMatchesSort(c: Context, v: String) = sp(c).edit().putString("matches_sort", v).apply()
+
     // ---------- Movies & series playback ----------
     /** Seconds moved by ◀ ▶ when the controls are hidden */
     fun seekStep(c: Context) = sp(c).getInt("seek_step", 10)
