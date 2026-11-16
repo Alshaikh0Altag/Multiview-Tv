@@ -48,6 +48,7 @@ class VodActivity : BaseActivity() {
     private lateinit var groups: RecyclerView
     private lateinit var posters: RecyclerView
     private lateinit var search: EditText
+    private lateinit var sortBtn: android.widget.Button
     private lateinit var loading: ProgressBar
     private lateinit var empty: TextView
 
@@ -71,6 +72,12 @@ class VodActivity : BaseActivity() {
         groups = findViewById(R.id.vodGroups)
         posters = findViewById(R.id.posters)
         search = findViewById(R.id.search)
+        sortBtn = findViewById(R.id.sort)
+        updateSortLabel()
+        sortBtn.setOnClickListener {
+            val next = when (Settings.vodSort(this)) { "new" -> "rating"; "rating" -> "name"; else -> "new" }
+            Settings.setVodSort(this, next); updateSortLabel(); showItems()
+        }
         loading = findViewById(R.id.vodLoading)
         empty = findViewById(R.id.vodEmpty)
         findViewById<TextView>(R.id.vodTitle).setText(if (isMovies) R.string.movies else R.string.series)
@@ -211,7 +218,15 @@ class VodActivity : BaseActivity() {
         }
     }
 
+    private fun updateSortLabel() {
+        sortBtn.setText(when (Settings.vodSort(this)) {
+            "rating" -> R.string.sort_rating; "name" -> R.string.sort_name; else -> R.string.sort_new })
+    }
+
+    private fun ratingOf(r: String?): Double = r?.replace(',', '.')?.toDoubleOrNull() ?: -1.0
+
     private fun showItems(keepPosition: Boolean = false) {
+        val sort = Settings.vodSort(this)
         val q = search.text.toString().trim()
         val match: (String) -> Boolean = { q.isEmpty() || it.contains(q, ignoreCase = true) }
         val items = when {
@@ -219,8 +234,16 @@ class VodActivity : BaseActivity() {
                 PosterItem(it.key, it.title, it.poster, getString(R.string.minutes_left, it.remainingMin))
             }
             isMovies -> movies.asSequence().distinctBy { it.id }.filter { match(it.name) }
+                .let { sq -> when (sort) {
+                    "rating" -> sq.sortedByDescending { ratingOf(it.rating) }
+                    "name" -> sq.sortedBy { it.name.lowercase() }
+                    else -> sq.sortedByDescending { it.added } } }
                 .map { PosterItem(it.id, it.name, it.poster, it.rating?.let { r -> "★ $r" }) }.toList()
             else -> seriesList.asSequence().distinctBy { it.id }.filter { match(it.name) }
+                .let { sq -> when (sort) {
+                    "rating" -> sq.sortedByDescending { ratingOf(it.rating) }
+                    "name" -> sq.sortedBy { it.name.lowercase() }
+                    else -> sq.sortedByDescending { it.added } } }
                 .map { PosterItem(it.id, it.name, it.cover, it.rating?.let { r -> "★ $r" }) }.toList()
         }
         setLoading(false)

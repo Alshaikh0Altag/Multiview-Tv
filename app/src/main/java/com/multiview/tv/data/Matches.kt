@@ -60,9 +60,13 @@ data class StandingRow(
     val played: Int,
     val goalDiff: String,
     val points: Int,
+    /** live table: places gained (+) or lost (−) compared with the official table */
+    val move: Int = 0,
+    /** this team is playing right now */
+    val playing: Boolean = false,
 )
 
-data class StandingTable(val title: String?, val rows: List<StandingRow>)
+data class StandingTable(val title: String?, val rows: List<StandingRow>, val live: Boolean = false)
 
 data class MatchDetails(
     val match: Match,
@@ -144,6 +148,49 @@ object Matches {
         } else parse(json, json.optString("name").ifBlank { null })
         tableCache[league] = System.currentTimeMillis() to out
         return out
+    }
+
+    /**
+     * ESPN updates tables only after full time, so while matches are being played the table is
+     * recalculated here from the current scores (win 3 / draw 1, goal difference), like a "live table".
+     */
+    private fun liveTable(t: StandingTable, current: Match): StandingTable {
+        val todays = cache?.second.orEmpty()
+        val live = (todays.filter { it.isLive && it.leagueCode == current.leagueCode && it.id != current.id } +
+            listOfNotNull(current.takeIf { it.isLive })).filter { it.home.id != null && it.away.id != null }
+        if (live.isEmpty()) return t
+        data class Acc(var pts: Int, var gd: Int, var played: Int, var playing: Boolean)
+        val acc = t.rows.associate { (it.teamId ?: "") to Acc(it.points, it.goalDiff.replace("+", "").toIntOrNull() ?: 0, it.played, false) }
+        var touched = false
+        for (m in live) {
+            val hs = m.home.score?.toIntOrNull() ?: continue
+            val aws = m.away.score?.toIntOrNull() ?: continue
+            val h = acc[m.home.id] ?: continue
+            val a = acc[m.away.id] ?: continue
+            h.played++; a.played++
+            h.gd += hs - aws; a.gd += aws - hs
+            when { hs > aws -> h.pts += 3; hs < aws -> a.pts += 3; else -> { h.pts++; a.pts++ } }
+            h.playing = true; a.playing = true
+            touched = true
+        }
+        if (!touched) return t
+        val reordered = t.rows.sortedWith(
+            compareByDescending<StandingRow> { acc[it.teamId ?: ""]!!.pts }
+                .thenByDescending { acc[it.teamId ?: ""]!!.gd }
+                .thenBy { it.position }
+        )
+        val rows = reordered.mapIndexed { i, r ->
+            val x = acc[r.teamId ?: ""]!!
+            r.copy(
+                position = i + 1,
+                played = x.played,
+                goalDiff = if (x.gd > 0) "+${x.gd}" else "${x.gd}",
+                points = x.pts,
+                move = r.position - (i + 1),
+                playing = x.playing,
+            )
+        }
+        return StandingTable(t.title, rows, live = true)
     }
 
     /** The table (league or group) that has both teams — or at least one of them. */
@@ -402,7 +449,7 @@ object Matches {
                 (o.optJSONObject("media")?.optString("shortName") ?: o.optString("station")).takeIf { !it.isNullOrBlank() }?.let { broadcasters += it }
             }
         }
-        val table = runCatching { standings(m) }.getOrNull()
+        val table = runCatching { standings(m) }.getOrNull()?.let { liveTable(it, match) }
         val ids = setOfNotNull(m.home.id, m.away.id)
         val mine = table?.rows?.filter { it.teamId in ids }.orEmpty()
         MatchDetails(match, venue, events, stats, broadcasters.toList(),
@@ -466,7 +513,7 @@ object Matches {
         "uefa.champions" to 100, "fifa.world" to 100, "fifa.cwc" to 95, "ksa.1" to 90, "eng.1" to 88,
         "esp.1" to 87, "afc.champions" to 85, "ita.1" to 80, "ger.1" to 78, "fra.1" to 75, "uefa.europa" to 72,
         "ksa.kings.cup" to 70, "uefa.euro" to 95, "afc.asian.cup" to 90, "caf.nations" to 80, "egy.1" to 65,
-        "esp.copa_del_rey" to 62, "eng.fa" to 62, "uefa.nations" to 60, "uefa.europa.conf" to 55,
+        "esp.copa_del_rey" to 62, "eng.fa" to 62, "uefa.nations" to 60, "uefa.europa.conf" to 55, "caf.nations_qual" to 58,
     )
     private val bigTeams = listOf(
         "real madrid", "barcelona", "al hilal", "al-hilal", "al nassr", "al-nassr", "al ittihad", "al-ittihad",

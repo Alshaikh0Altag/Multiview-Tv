@@ -263,8 +263,8 @@ open class BaseActivity : AppCompatActivity() {
     override fun dispatchKeyEvent(event: KeyEvent): Boolean {
         if (!isScreenLocked) return super.dispatchKeyEvent(event)
         val ok = event.keyCode == KeyEvent.KEYCODE_DPAD_CENTER || event.keyCode == KeyEvent.KEYCODE_ENTER
-        // hold OK for 3 seconds to unlock
-        if (ok && event.action == KeyEvent.ACTION_DOWN && event.repeatCount > 0 && event.eventTime - event.downTime >= 3_000) {
+        // hold OK for 2 seconds to unlock
+        if (ok && event.action == KeyEvent.ACTION_DOWN && event.repeatCount > 0 && event.eventTime - event.downTime >= 2_000) {
             unlockScreen()
             return true
         }

@@ -177,12 +177,13 @@ class MatchActivity : BaseActivity() {
         val table = findViewById<LinearLayout>(R.id.mdTable)
         table.removeAllViews()
         findViewById<TextView>(R.id.mdTableTitle).apply {
-            text = getString(R.string.md_table) + (d.standingsTitle?.let { " — $it" } ?: "")
+            text = getString(R.string.md_table) + (d.standingsTitle?.let { " — $it" } ?: "") +
+                (if (d.fullTable?.live == true) "  ● " + getString(R.string.md_live_table) else "")
             visibility = if (d.standings.isNotEmpty()) View.VISIBLE else View.GONE
         }
         if (d.standings.isNotEmpty()) {
             addTableRow(table, "#", getString(R.string.md_team), getString(R.string.md_played), "+/-", getString(R.string.md_points), header = true)
-            d.standings.forEach { r -> addTableRow(table, r.position.toString(), r.team, r.played.toString(), r.goalDiff, r.points.toString()) }
+            d.standings.forEach { r -> addTableRow(table, posLabel(r), teamLabel(r), r.played.toString(), r.goalDiff, r.points.toString()) }
         }
         val full = findViewById<android.widget.Button>(R.id.mdFullTable)
         val ft = d.fullTable
@@ -203,18 +204,25 @@ class MatchActivity : BaseActivity() {
         findViewById<TextView>(R.id.mdDiag).visibility = View.GONE
     }
 
+    /** live table: ▲/▼ places moved since kick-off */
+    private fun posLabel(r: com.multiview.tv.data.StandingRow) = r.position.toString() +
+        when { r.move > 0 -> " ▲"; r.move < 0 -> " ▼"; else -> "" }
+
+    private fun teamLabel(r: com.multiview.tv.data.StandingRow) = if (r.playing) "● " + r.team else r.team
+
     /** Whole league / group table in a dialog; the two teams of this match are highlighted. */
     private fun showFullTable(t: com.multiview.tv.data.StandingTable, highlight: Set<String>) {
         val box = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; setPadding(dp(20), dp(8), dp(20), dp(8)) }
         addTableRow(box, "#", getString(R.string.md_team), getString(R.string.md_played), "+/-", getString(R.string.md_points), header = true)
         t.rows.forEach { r ->
-            addTableRow(box, r.position.toString(), r.team, r.played.toString(), r.goalDiff, r.points.toString(),
+            addTableRow(box, posLabel(r), teamLabel(r), r.played.toString(), r.goalDiff, r.points.toString(),
                 highlight = r.teamId in highlight)
         }
         // focusable so the remote can scroll a long table
         val scroll = android.widget.ScrollView(this).apply { isFocusable = true; addView(box) }
         androidx.appcompat.app.AlertDialog.Builder(this)
-            .setTitle(getString(R.string.md_table) + (t.title?.let { " — $it" } ?: ""))
+            .setTitle(getString(R.string.md_table) + (t.title?.let { " — $it" } ?: "") +
+                (if (t.live) "  ● " + getString(R.string.md_live_table) else ""))
             .setView(scroll)
             .setPositiveButton(android.R.string.ok, null)
             .showWrapped()

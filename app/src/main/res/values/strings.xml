@@ -127,7 +127,7 @@
     <string name="director">الإخراج: %1$s</string>
     <string name="cast">التمثيل: %1$s</string>
     <string name="menu_lock">قفل الشاشة</string>
-    <string name="screen_locked">🔒 الشاشة مقفلة — اضغط مطوّلاً على OK لمدة 3 ثوانٍ للفتح</string>
+    <string name="screen_locked">🔒 الشاشة مقفلة — اضغط مطوّلاً على OK لمدة ثانيتين للفتح</string>
     <string name="screen_unlocked">🔓 تم فتح القفل</string>
     <string name="set_clock_opacity">شفافية الساعة: %1$d%%</string>
     <string name="search_all">بحث</string>
@@ -138,8 +138,8 @@
     <string name="type_movie">فيلم</string>
     <string name="type_series">مسلسل</string>
     <string name="recent_channels">شوهدت مؤخراً</string>
-    <string name="panel_hint">OK: تشغيل  ·  ◀ المجموعات  ·  ضغط مطوّل: للمشاهدة المتعددة  ·  رجوع: إغلاق</string>
-    <string name="player_hint">OK: قائمة القنوات  ·  ▲▼ أو الأرقام: تغيير القناة  ·  ضغط مطوّل أو Menu: الخيارات</string>
+    <string name="panel_hint">OK: تشغيل  ·  ◀ المجموعات  ·  ضغط مطوّل: خيارات القناة  ·  رجوع: إغلاق</string>
+    <string name="player_hint">OK: ضبط المشغّل  ·  ◀ قائمة القنوات  ·  ▶ معلومات القناة  ·  ▲▼ أو الأرقام: تغيير القناة</string>
     <string name="menu_sleep">مؤقت النوم</string>
     <string name="minutes_n">%1$d دقيقة</string>
     <string name="sleep_set">سيُغلق التطبيق بعد %1$d دقيقة</string>
@@ -271,4 +271,8 @@
     <string name="md_no_broadcaster">لم يُعلن الناقل بعد</string>
     <string name="md_set_n">المجموعة %1$d</string>
     <string name="md_full_table">الترتيب الكامل</string>
+    <string name="sort_new">⇅ الأحدث إضافة</string>
+    <string name="sort_rating">⇅ الأعلى تقييماً</string>
+    <string name="sort_name">⇅ أبجدياً</string>
+    <string name="md_live_table">مباشر</string>
 </resources>

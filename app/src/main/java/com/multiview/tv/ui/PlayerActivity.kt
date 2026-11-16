@@ -374,8 +374,12 @@ class PlayerActivity : BaseActivity() {
             KeyEvent.KEYCODE_DPAD_DOWN -> { tune(if (Settings.reverseArrows(this)) index + 1 else index - 1); return true }
             KeyEvent.KEYCODE_LAST_CHANNEL -> { if (previousIndex >= 0) tune(previousIndex); return true }
             KeyEvent.KEYCODE_DPAD_CENTER, KeyEvent.KEYCODE_ENTER -> {
-                event.startTracking()   // so a long press can open the menu
+                event.startTracking()   // short press: player menu, long press: channel list
                 return true
+            }
+            KeyEvent.KEYCODE_DPAD_LEFT -> { openPanel(); return true }          // ◀ channel list (◀ again: groups)
+            KeyEvent.KEYCODE_DPAD_RIGHT -> {                                     // ▶ channel info
+                if (overlay.visibility == View.VISIBLE) overlay.visibility = View.GONE else showOverlay(); return true
             }
             KeyEvent.KEYCODE_MENU, KeyEvent.KEYCODE_SETTINGS -> { openMenu(); return true }
             KeyEvent.KEYCODE_INFO -> { if (overlay.visibility == View.VISIBLE) overlay.visibility = View.GONE else showOverlay(); return true }
@@ -385,14 +389,14 @@ class PlayerActivity : BaseActivity() {
 
     override fun onKeyLongPress(keyCode: Int, event: KeyEvent): Boolean {
         if (panelVisible) return super.onKeyLongPress(keyCode, event)
-        if (keyCode == KeyEvent.KEYCODE_DPAD_CENTER || keyCode == KeyEvent.KEYCODE_ENTER) { openMenu(); return true }
+        if (keyCode == KeyEvent.KEYCODE_DPAD_CENTER || keyCode == KeyEvent.KEYCODE_ENTER) { openPanel(); return true }
         return super.onKeyLongPress(keyCode, event)
     }
 
     override fun onKeyUp(keyCode: Int, event: KeyEvent): Boolean {
         if (panelVisible) return super.onKeyUp(keyCode, event)
         if ((keyCode == KeyEvent.KEYCODE_DPAD_CENTER || keyCode == KeyEvent.KEYCODE_ENTER) && !event.isCanceled) {
-            if (event.flags and KeyEvent.FLAG_CANCELED_LONG_PRESS == 0 && !panelVisible) openPanel()
+            if (event.flags and KeyEvent.FLAG_CANCELED_LONG_PRESS == 0 && !panelVisible) openMenu()
             return true
         }
         return super.onKeyUp(keyCode, event)

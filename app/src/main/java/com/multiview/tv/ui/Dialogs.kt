@@ -9,6 +9,9 @@ import androidx.appcompat.app.AlertDialog
  */
 fun AlertDialog.Builder.showWrapped(): AlertDialog {
     val d = show()
+    // with OK / Cancel buttons, ▼ on the last item must still reach the buttons
+    val hasButtons = listOf(AlertDialog.BUTTON_POSITIVE, AlertDialog.BUTTON_NEGATIVE, AlertDialog.BUTTON_NEUTRAL)
+        .any { d.getButton(it)?.let { b -> b.visibility == android.view.View.VISIBLE && b.text.isNotEmpty() } == true }
     d.listView?.let { list ->
         list.setOnKeyListener { _, keyCode, event ->
             if (event.action != KeyEvent.ACTION_DOWN) return@setOnKeyListener false
@@ -17,10 +20,17 @@ fun AlertDialog.Builder.showWrapped(): AlertDialog {
             val pos = list.selectedItemPosition
             when {
                 keyCode == KeyEvent.KEYCODE_DPAD_UP && pos == 0 -> { list.setSelection(count - 1); true }
-                keyCode == KeyEvent.KEYCODE_DPAD_DOWN && pos == count - 1 -> { list.setSelection(0); true }
+                // with OK / Cancel buttons below the list, ▼ on the last item goes down to them
+                keyCode == KeyEvent.KEYCODE_DPAD_DOWN && pos == count - 1 && !hasButtons(d) -> { list.setSelection(0); true }
                 else -> false
             }
         }
     }
     return d
 }
+
+private fun hasButtons(d: AlertDialog) = listOf(
+    android.content.DialogInterface.BUTTON_POSITIVE,
+    android.content.DialogInterface.BUTTON_NEGATIVE,
+    android.content.DialogInterface.BUTTON_NEUTRAL,
+).any { d.getButton(it)?.let { b -> b.visibility == android.view.View.VISIBLE && b.text.isNotEmpty() } == true }

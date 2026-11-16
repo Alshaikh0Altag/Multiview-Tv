@@ -98,6 +98,7 @@ object Settings {
         "afc.asian.cup" to "كأس آسيا",
         "caf.champions" to "دوري أبطال أفريقيا",
         "caf.nations" to "كأس أمم أفريقيا",
+        "caf.nations_qual" to "تصفيات كأس أمم أفريقيا",
         // أوروبا — بطولات
         "uefa.champions" to "دوري أبطال أوروبا",
         "uefa.europa" to "الدوري الأوروبي",
@@ -139,10 +140,26 @@ object Settings {
         "bra.1" to "الدوري البرازيلي",
         "arg.1" to "الدوري الأرجنتيني",
     )
-    fun leagues(c: Context): Set<String> =
+    /** Leagues added in an update, switched on once for everyone (even if the list was customised). */
+    private val NEW_DEFAULT_LEAGUES = listOf("caf.nations_qual")
+
+    fun leagues(c: Context): Set<String> {
+        val p = sp(c)
+        val set = leaguesRaw(c).toMutableSet()
+        val pending = NEW_DEFAULT_LEAGUES.filter { !p.getBoolean("lg_added_$it", false) }
+        if (pending.isNotEmpty()) {
+            set += pending
+            val e = p.edit().putStringSet("leagues", set)
+            pending.forEach { e.putBoolean("lg_added_$it", true) }
+            e.apply()
+        }
+        return set
+    }
+
+    private fun leaguesRaw(c: Context): Set<String> =
         sp(c).getStringSet("leagues", setOf(
             "ksa.1", "ksa.kings.cup", "egy.1", "afc.champions", "uefa.champions", "uefa.europa",
-            "eng.1", "esp.1", "ita.1", "ger.1", "fra.1", "fifa.world", "fifa.cwc", "fifa.worldq.afc",
+            "eng.1", "esp.1", "ita.1", "ger.1", "fra.1", "fifa.world", "fifa.cwc", "fifa.worldq.afc", "caf.nations_qual",
         ))!!
     fun setLeagues(c: Context, v: Set<String>) = sp(c).edit().putStringSet("leagues", v).apply()
 
@@ -168,8 +185,16 @@ object Settings {
     fun matchesSort(c: Context) = sp(c).getString("matches_sort", "importance")!!
     fun setMatchesSort(c: Context, v: String) = sp(c).edit().putString("matches_sort", v).apply()
 
+    /** Movies & series order: "recent" (default) / "rating" / "name" */
+    fun vodSort(c: Context) = sp(c).getString("vod_sort", "recent")!!
+    fun setVodSort(c: Context, v: String) = sp(c).edit().putString("vod_sort", v).apply()
+
     fun tennisEnabled(c: Context) = sp(c).getBoolean("tennis", true)
     fun setTennisEnabled(c: Context, v: Boolean) = sp(c).edit().putBoolean("tennis", v).apply()
+
+    /** Movies / series order: "new" (default), "rating", "name" */
+    fun vodSort(c: Context) = sp(c).getString("vod_sort", "new")!!
+    fun setVodSort(c: Context, v: String) = sp(c).edit().putString("vod_sort", v).apply()
 
     // ---------- Movies & series playback ----------
     /** Seconds moved by ◀ ▶ when the controls are hidden */
