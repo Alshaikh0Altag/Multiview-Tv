@@ -12,6 +12,9 @@ object Repository {
     /** Set from Settings: recently watched channel ids (newest first) and the channel order. */
     var recentIds: List<String> = emptyList()
     var sortByName: Boolean = false
+    var hiddenChannels: Set<String> = emptySet()
+    var customLists: Map<String, List<String>> = emptyMap()
+    const val LIST_PREFIX = "__list__:"
 
     var playlist: Playlist? = null
         private set
@@ -117,15 +120,17 @@ object Repository {
 
     /** @param excluded raw category ids hidden or still locked — left out of "all channels" */
     fun channelsIn(categoryId: String, favorites: Set<String>, excluded: Set<String> = emptySet()): List<Channel> {
-        if (categoryId == RECENT_ID) {
+        if (categoryId == RECENT_ID || categoryId.startsWith(LIST_PREFIX)) {
+            val ids = if (categoryId == RECENT_ID) recentIds else customLists[categoryId.removePrefix(LIST_PREFIX)].orEmpty()
             val byId = channels.associateBy { it.id }
-            return recentIds.mapNotNull { byId[it] }.filter { it.categoryId !in excluded }
+            return ids.mapNotNull { byId[it] }.filter { it.categoryId !in excluded && it.id !in hiddenChannels }
         }
-        val list = when (categoryId) {
+        val all = when (categoryId) {
             ALL_ID -> if (excluded.isEmpty()) channels else channels.filter { it.categoryId !in excluded }
             FAVORITES_ID -> channels.filter { favorites.contains(it.id) }
             else -> channels.filter { it.categoryId == categoryId }
         }
+        val list = if (hiddenChannels.isEmpty()) all else all.filter { it.id !in hiddenChannels }
         return if (sortByName) list.sortedBy { it.name.lowercase() } else list
     }
 

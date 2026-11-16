@@ -122,6 +122,11 @@ class MovieInfoActivity : BaseActivity() {
         d.backdrop?.let { findViewById<ImageView>(R.id.backdrop).load(it) { crossfade(true) } }
             ?: (d.poster ?: movie.poster)?.let { findViewById<ImageView>(R.id.backdrop).load(it) { crossfade(true) } }
         if (movie.rating == null) showRating(d.rating)
+        d.trailer?.let { t ->
+            val btn = findViewById<Button>(R.id.btnTrailer)
+            btn.visibility = View.VISIBLE
+            btn.setOnClickListener { openTrailer(t) }
+        }
 
         val year = d.releaseDate?.take(4)
         findViewById<TextView>(R.id.infoMeta).text =
@@ -132,6 +137,22 @@ class MovieInfoActivity : BaseActivity() {
             d.cast?.let { getString(R.string.cast, it) },
         )
         findViewById<TextView>(R.id.infoPeople).text = people.joinToString("\n")
+    }
+
+    /** Opens the trailer in the YouTube app (or any app that can open the link). */
+    private fun openTrailer(t: String) {
+        val id = when {
+            t.contains("v=") -> t.substringAfter("v=").substringBefore('&')
+            t.contains("youtu.be/") -> t.substringAfter("youtu.be/").substringBefore('?')
+            else -> t.trim()
+        }
+        val app = Intent(Intent.ACTION_VIEW, android.net.Uri.parse("vnd.youtube:$id"))
+        val web = Intent(Intent.ACTION_VIEW, android.net.Uri.parse("https://www.youtube.com/watch?v=$id"))
+        try { startActivity(app) } catch (_: android.content.ActivityNotFoundException) {
+            try { startActivity(web) } catch (_: android.content.ActivityNotFoundException) {
+                android.widget.Toast.makeText(this, R.string.no_youtube, android.widget.Toast.LENGTH_LONG).show()
+            }
+        }
     }
 
     private fun fmt(ms: Long): String {

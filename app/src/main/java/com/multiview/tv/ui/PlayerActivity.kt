@@ -61,7 +61,33 @@ class PlayerActivity : BaseActivity() {
     private var digits = ""
     private val handler = Handler(Looper.getMainLooper())
     private val hideOverlay = Runnable { overlay.visibility = View.GONE }
-    private val retry = Runnable { list.getOrNull(index)?.let { player?.playUrl(it.url) } }
+    // ---- smart reconnect ----
+    private var errorCount = 0
+    private var currentUrl = ""
+    private val retry = Runnable { player?.playUrl(currentUrl) }
+    /** Still buffering after 15 s → reconnect instead of waiting forever. */
+    private val stallCheck = Runnable {
+        if (player?.playbackState == Player.STATE_BUFFERING) reconnect()
+    }
+
+    /** Alternative address for the same Xtream channel (.ts ↔ .m3u8). */
+    private fun altUrl(url: String): String? = when {
+        url.endsWith(".ts") && url.contains("/live/") -> url.removeSuffix(".ts") + ".m3u8"
+        url.endsWith(".m3u8") && url.contains("/live/") -> url.removeSuffix(".m3u8") + ".ts"
+        else -> null
+    }
+
+    private fun reconnect() {
+        val c = list.getOrNull(index) ?: return
+        errorCount++
+        // 2nd and 3rd attempt: other stream format; then back to the original
+        currentUrl = if (errorCount in 2..3) altUrl(c.url) ?: c.url else c.url
+        val delayMs = (1_000L shl (errorCount - 1).coerceAtMost(4)).coerceAtMost(15_000L)
+        digitsView.text = getString(R.string.reconnecting, errorCount)
+        digitsView.visibility = View.VISIBLE
+        handler.removeCallbacks(retry)
+        handler.postDelayed(retry, delayMs)
+    }
     private val commitDigits = Runnable { jumpToNumber() }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -88,10 +114,17 @@ class PlayerActivity : BaseActivity() {
         if (list.isEmpty()) return
         val p = PlayerFactory.create(this)
         p.addListener(object : Player.Listener {
-            override fun onPlayerError(error: PlaybackException) {
-                Toast.makeText(this@PlayerActivity, R.string.stream_error, Toast.LENGTH_SHORT).show()
-                handler.removeCallbacks(retry)
-                handler.postDelayed(retry, 3_000)
+            override fun onPlayerError(error: PlaybackException) = reconnect()
+
+            override fun onPlaybackStateChanged(state: Int) {
+                handler.removeCallbacks(stallCheck)
+                when (state) {
+                    Player.STATE_BUFFERING -> handler.postDelayed(stallCheck, 15_000)
+                    Player.STATE_READY -> {
+                        if (errorCount > 0) digitsView.visibility = View.GONE
+                        errorCount = 0
+                    }
+                }
             }
         })
         player = p
@@ -123,6 +156,19 @@ class PlayerActivity : BaseActivity() {
         index = newIndex
         val c = list[index]
         handler.removeCallbacks(retry)
+        handler.removeCallbacks(stallCheck)
+        // Locked channel: ask for the PIN once per session
+        val key = "c:${c.id}"
+        if (c.id in Settings.lockedChannels(this) && key !in unlockedGroups) {
+            player?.stop()
+            chNumber.text = c.number.toString()
+            chName.text = c.name
+            showOverlay()
+            askPin { unlockedGroups += key; tune(index) }
+            return
+        }
+        errorCount = 0
+        currentUrl = c.url
         player?.playUrl(c.url)
         Settings.setLastChannel(this, c.id)
         Settings.pushRecentChannel(this, c.id)
@@ -161,9 +207,7 @@ class PlayerActivity : BaseActivity() {
                 closePanel()
             },
             onLongClick = { c, _ ->
-                val slot = Repository.addToMultiView(c)
-                Toast.makeText(this, if (slot < 0) getString(R.string.multiview_full)
-                    else getString(R.string.added_to_slot, slot + 1), Toast.LENGTH_SHORT).show()
+                ChannelActions.show(this, c) { showPanelGroup(panelGroup, panelTitle.text.toString()) }
             },
         )
         panelGroupList.layoutManager = LinearLayoutManager(this)
@@ -179,6 +223,9 @@ class PlayerActivity : BaseActivity() {
         val items = mutableListOf(
             GroupItem(Repository.RECENT_ID, getString(R.string.recent_channels), Repository.recentIds.size),
             GroupItem(Repository.FAVORITES_ID, getString(R.string.favorite), Repository.channels.count { favs.contains(it.id) }),
+            *Settings.customLists(this).map { (name, ids) ->
+                GroupItem(Repository.LIST_PREFIX + name, "★ $name", ids.size)
+            }.toTypedArray(),
             GroupItem(Repository.ALL_ID, getString(R.string.all_channels), -1),
         )
         val counts = Repository.channels.groupingBy { it.categoryId }.eachCount()

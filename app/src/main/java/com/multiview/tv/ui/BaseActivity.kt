@@ -20,6 +20,9 @@ import com.multiview.tv.R
 import com.multiview.tv.data.Http
 import com.multiview.tv.data.Repository
 import com.multiview.tv.data.Settings
+import com.multiview.tv.data.Updater
+import androidx.lifecycle.lifecycleScope
+import kotlinx.coroutines.launch
 
 /**
  * Shared behaviour for every screen:
@@ -60,6 +63,55 @@ open class BaseActivity : AppCompatActivity() {
         Http.userAgent = Settings.userAgent(this).ifBlank { Http.DEFAULT_USER_AGENT }
         Repository.sortByName = Settings.channelSort(this) == "name"
         Repository.recentIds = Settings.recentChannels(this)
+        Repository.hiddenChannels = Settings.hiddenChannels(this)
+        Repository.customLists = Settings.customLists(this)
+    }
+
+    // ---------- in-app updates ----------
+
+    /** @param manual true from Settings (always answers); false at start-up (twice a day, silent if none). */
+    fun checkForUpdates(manual: Boolean) {
+        if (!manual && System.currentTimeMillis() - Settings.lastUpdateCheck(this) < 12 * 3600_000L) return
+        Settings.setLastUpdateCheck(this, System.currentTimeMillis())
+        lifecycleScope.launch {
+            val rel = Updater.latest()
+            val current = Updater.currentVersionCode(this@BaseActivity)
+            when {
+                rel == null -> if (manual) Toast.makeText(this@BaseActivity, R.string.update_unavailable, Toast.LENGTH_LONG).show()
+                rel.versionCode <= current -> if (manual) Toast.makeText(this@BaseActivity, R.string.update_latest, Toast.LENGTH_SHORT).show()
+                else -> AlertDialog.Builder(this@BaseActivity)
+                    .setTitle(getString(R.string.update_available, rel.name))
+                    .setMessage(getString(R.string.update_msg, Updater.currentVersionName(this@BaseActivity), rel.name))
+                    .setPositiveButton(R.string.update_now) { _, _ -> downloadUpdate(rel) }
+                    .setNegativeButton(R.string.later, null)
+                    .show()
+            }
+        }
+    }
+
+    private fun downloadUpdate(rel: Updater.Release) {
+        if (!Updater.canInstall(this)) {
+            Toast.makeText(this, R.string.update_allow_install, Toast.LENGTH_LONG).show()
+            Updater.openInstallPermission(this)
+            return
+        }
+        val progress = TextView(this).apply {
+            val p = (24 * resources.displayMetrics.density).toInt()
+            setPadding(p, p, p, p)
+            setTextSize(TypedValue.COMPLEX_UNIT_SP, 18f)
+            text = getString(R.string.update_downloading, 0)
+        }
+        val dialog = AlertDialog.Builder(this).setTitle(rel.name).setView(progress).setCancelable(false).show()
+        lifecycleScope.launch {
+            try {
+                val file = Updater.download(this@BaseActivity, rel.apkUrl) { p -> progress.text = getString(R.string.update_downloading, p) }
+                dialog.dismiss()
+                Updater.install(this@BaseActivity, file)
+            } catch (e: Exception) {
+                dialog.dismiss()
+                Toast.makeText(this@BaseActivity, getString(R.string.load_failed, e.message ?: ""), Toast.LENGTH_LONG).show()
+            }
+        }
     }
 
     // ---------- sleep timer ----------

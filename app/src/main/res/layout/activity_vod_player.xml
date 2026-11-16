@@ -27,4 +27,40 @@
         android:paddingBottom="6dp"
         android:textSize="18sp"
         android:textStyle="bold" />
+
+    <TextView
+        android:id="@+id/vodSeek"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_gravity="center"
+        android:background="@drawable/bg_label"
+        android:fontFamily="@font/plex_bold"
+        android:paddingStart="24dp"
+        android:paddingTop="10dp"
+        android:paddingEnd="24dp"
+        android:paddingBottom="10dp"
+        android:textColor="@color/text"
+        android:textSize="26sp"
+        android:visibility="gone" />
+
+    <TextView
+        android:id="@+id/vodAction"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_gravity="bottom|end"
+        android:layout_marginEnd="48dp"
+        android:layout_marginBottom="120dp"
+        android:background="@drawable/bg_action"
+        android:drawableStart="@drawable/ic_play"
+        android:drawablePadding="10dp"
+        android:drawableTint="@color/on_focus"
+        android:fontFamily="@font/plex_medium"
+        android:gravity="center_vertical"
+        android:paddingStart="22dp"
+        android:paddingTop="12dp"
+        android:paddingEnd="22dp"
+        android:paddingBottom="12dp"
+        android:textColor="@color/on_focus"
+        android:textSize="18sp"
+        android:visibility="gone" />
 </FrameLayout>

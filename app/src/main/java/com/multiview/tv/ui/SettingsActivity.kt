@@ -18,6 +18,7 @@ import com.multiview.tv.data.Category
 import com.multiview.tv.data.Prefs
 import com.multiview.tv.data.Repository
 import com.multiview.tv.data.Settings
+import com.multiview.tv.data.Updater
 import kotlinx.coroutines.launch
 
 /** All app settings: playlists, clock, playback, groups, parental lock. */
@@ -44,6 +45,10 @@ class SettingsActivity : BaseActivity() {
         row({ getString(R.string.set_playlists, Prefs.load(this)?.let { label(it) } ?: "-") }) { playlists() }
         row({ getString(R.string.set_account) }) { accountInfo() }
         row({ getString(R.string.set_refresh) }) { switchTo(Prefs.activeIndex(this)) }
+
+        header(R.string.set_section_home)
+        row({ getString(R.string.set_home_rows) }) { homeRows() }
+        row({ getString(R.string.set_leagues) }) { leagues() }
 
         header(R.string.set_section_clock)
         row({ getString(R.string.set_clock, onOff(Settings.clockEnabled(this))) }) {
@@ -102,6 +107,23 @@ class SettingsActivity : BaseActivity() {
             Settings.setAutoplayLast(this, !Settings.autoplayLast(this))
         }
 
+        header(R.string.set_section_vod)
+        row({ getString(R.string.set_seek_step, Settings.seekStep(this)) }) {
+            val steps = listOf(10, 15, 30, 60)
+            Settings.setSeekStep(this, steps[(steps.indexOf(Settings.seekStep(this)) + 1).mod(steps.size)])
+        }
+        row({ getString(R.string.set_intro, Settings.introSkip(this)) }) {
+            val steps = listOf(60, 75, 90, 120, 150)
+            Settings.setIntroSkip(this, steps[(steps.indexOf(Settings.introSkip(this)) + 1).mod(steps.size)])
+        }
+        row({ getString(R.string.set_auto_next, onOff(Settings.autoNext(this))) }) {
+            Settings.setAutoNext(this, !Settings.autoNext(this))
+        }
+
+        header(R.string.set_section_channels)
+        row({ getString(R.string.set_hidden_channels, Settings.hiddenChannels(this).size) }) { hiddenChannels() }
+        row({ getString(R.string.set_custom_lists, Settings.customLists(this).size) }) { customLists() }
+
         header(R.string.set_section_groups)
         row({ getString(R.string.set_hide_live) }) { pickGroups("l:", hide = true) }
         row({ getString(R.string.set_hide_movies) }) { pickGroups("m:", hide = true) }
@@ -112,6 +134,9 @@ class SettingsActivity : BaseActivity() {
         row({ getString(R.string.set_lock_movies) }) { askPin { pickGroups("m:", hide = false) } }
         row({ getString(R.string.set_lock_series) }) { askPin { pickGroups("s:", hide = false) } }
         row({ getString(R.string.set_change_pin) }) { askPin { changePin() } }
+
+        header(R.string.set_section_about)
+        row({ getString(R.string.set_version, Updater.currentVersionName(this)) }) { checkForUpdates(manual = true) }
 
         rows.firstOrNull()?.first?.requestFocus()
     }
@@ -271,6 +296,72 @@ class SettingsActivity : BaseActivity() {
                 Settings.setUserAgent(this, ""); applyGlobalSettings(); refresh()
             }
             .setNegativeButton(android.R.string.cancel, null)
+            .show()
+    }
+
+    private fun homeRows() {
+        val all = Settings.ALL_HOME_ROWS
+        val labels = all.map { getString(when (it) {
+            "matches" -> R.string.today_matches; "continue" -> R.string.continue_watching
+            "recent" -> R.string.recent_channels; "favorites" -> R.string.favorite_channels
+            "lists" -> R.string.custom_lists_rows; "fav_movies" -> R.string.favorite_movies
+            else -> R.string.favorite_series }) }
+        val current = Settings.homeRows(this).toMutableSet()
+        val checked = all.map { it in current }.toBooleanArray()
+        AlertDialog.Builder(this)
+            .setTitle(R.string.set_home_rows)
+            .setMultiChoiceItems(labels.toTypedArray(), checked) { _, i, on -> if (on) current += all[i] else current -= all[i] }
+            .setPositiveButton(android.R.string.ok) { _, _ -> Settings.setHomeRows(this, all.filter { it in current }) }
+            .setNegativeButton(android.R.string.cancel, null)
+            .show()
+    }
+
+    private fun leagues() {
+        val codes = Settings.ALL_LEAGUES.keys.toList()
+        val current = Settings.leagues(this).toMutableSet()
+        AlertDialog.Builder(this)
+            .setTitle(R.string.set_leagues)
+            .setMultiChoiceItems(Settings.ALL_LEAGUES.values.toTypedArray(), codes.map { it in current }.toBooleanArray()) { _, i, on ->
+                if (on) current += codes[i] else current -= codes[i]
+            }
+            .setPositiveButton(android.R.string.ok) { _, _ -> Settings.setLeagues(this, current) }
+            .setNegativeButton(android.R.string.cancel, null)
+            .show()
+    }
+
+    private fun hiddenChannels() {
+        val hidden = Settings.hiddenChannels(this).toMutableSet()
+        val chans = Repository.channels.filter { it.id in hidden }
+        if (chans.isEmpty()) { Toast.makeText(this, R.string.no_hidden_channels, Toast.LENGTH_SHORT).show(); return }
+        val checked = BooleanArray(chans.size) { true }
+        AlertDialog.Builder(this)
+            .setTitle(R.string.set_hidden_title)
+            .setMultiChoiceItems(chans.map { it.name }.toTypedArray(), checked) { _, i, on ->
+                if (on) hidden += chans[i].id else hidden -= chans[i].id
+            }
+            .setPositiveButton(android.R.string.ok) { _, _ ->
+                Settings.setHiddenChannels(this, hidden); applyGlobalSettings(); refresh()
+            }
+            .setNegativeButton(android.R.string.cancel, null)
+            .show()
+    }
+
+    private fun customLists() {
+        val lists = Settings.customLists(this)
+        if (lists.isEmpty()) { Toast.makeText(this, R.string.no_custom_lists, Toast.LENGTH_LONG).show(); return }
+        val names = lists.keys.toList()
+        AlertDialog.Builder(this)
+            .setTitle(R.string.set_custom_lists_title)
+            .setItems(names.map { "$it (${lists[it]?.size ?: 0})" }.toTypedArray()) { _, i ->
+                AlertDialog.Builder(this)
+                    .setTitle(names[i])
+                    .setMessage(R.string.delete_list_q)
+                    .setPositiveButton(R.string.remove) { _, _ ->
+                        lists.remove(names[i]); Settings.setCustomLists(this, lists); applyGlobalSettings(); refresh()
+                    }
+                    .setNegativeButton(android.R.string.cancel, null)
+                    .show()
+            }
             .show()
     }
 

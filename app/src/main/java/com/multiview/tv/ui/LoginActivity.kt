@@ -109,7 +109,7 @@ class LoginActivity : BaseActivity() {
             try {
                 Repository.load(p, Settings.liveFormat(this@LoginActivity))
                 Prefs.save(this@LoginActivity, p)
-                startActivity(Intent(this@LoginActivity, MainActivity::class.java)
+                startActivity(Intent(this@LoginActivity, HomeActivity::class.java)
                     .addFlags(Intent.FLAG_ACTIVITY_CLEAR_TASK or Intent.FLAG_ACTIVITY_NEW_TASK))
                 finish()
             } catch (e: Exception) {

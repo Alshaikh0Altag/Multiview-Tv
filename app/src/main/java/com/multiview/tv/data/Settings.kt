@@ -74,6 +74,67 @@ object Settings {
         sp(c).edit().putString("recent_ch", list.joinToString(",")).apply()
     }
 
+    // ---------- Home screen ----------
+    /** Rows shown on the home screen, in order. */
+    val ALL_HOME_ROWS = listOf("matches", "continue", "recent", "favorites", "lists", "fav_movies", "fav_series")
+    fun homeRows(c: Context): List<String> =
+        sp(c).getString("home_rows", "matches,continue,recent,favorites,lists")!!.split(',').filter { it in ALL_HOME_ROWS }
+    fun setHomeRows(c: Context, v: List<String>) = sp(c).edit().putString("home_rows", v.joinToString(",")).apply()
+
+    /** ESPN league codes shown in "today's matches". */
+    val ALL_LEAGUES = linkedMapOf(
+        "ksa.1" to "دوري روشن السعودي",
+        "afc.champions" to "دوري أبطال آسيا",
+        "uefa.champions" to "دوري أبطال أوروبا",
+        "eng.1" to "الدوري الإنجليزي",
+        "esp.1" to "الدوري الإسباني",
+        "ita.1" to "الدوري الإيطالي",
+        "ger.1" to "الدوري الألماني",
+        "fra.1" to "الدوري الفرنسي",
+        "uefa.europa" to "الدوري الأوروبي",
+        "fifa.world" to "كأس العالم",
+        "fifa.friendly" to "مباريات ودية دولية",
+    )
+    fun leagues(c: Context): Set<String> =
+        sp(c).getStringSet("leagues", setOf("ksa.1", "afc.champions", "uefa.champions", "eng.1", "esp.1", "ita.1", "fifa.world"))!!
+    fun setLeagues(c: Context, v: Set<String>) = sp(c).edit().putStringSet("leagues", v).apply()
+
+    // ---------- Movies & series playback ----------
+    /** Seconds moved by ◀ ▶ when the controls are hidden */
+    fun seekStep(c: Context) = sp(c).getInt("seek_step", 10)
+    fun setSeekStep(c: Context, v: Int) = sp(c).edit().putInt("seek_step", v).apply()
+    /** Seconds jumped by "skip intro" */
+    fun introSkip(c: Context) = sp(c).getInt("intro_skip", 90)
+    fun setIntroSkip(c: Context, v: Int) = sp(c).edit().putInt("intro_skip", v).apply()
+    fun autoNext(c: Context) = sp(c).getBoolean("auto_next", true)
+    fun setAutoNext(c: Context, v: Boolean) = sp(c).edit().putBoolean("auto_next", v).apply()
+
+    // ---------- Channels: hidden / locked / custom lists ----------
+    fun hiddenChannels(c: Context): Set<String> = sp(c).getStringSet("hidden_ch", emptySet())!!
+    fun setHiddenChannels(c: Context, v: Set<String>) = sp(c).edit().putStringSet("hidden_ch", v).apply()
+    fun lockedChannels(c: Context): Set<String> = sp(c).getStringSet("locked_ch", emptySet())!!
+    fun setLockedChannels(c: Context, v: Set<String>) = sp(c).edit().putStringSet("locked_ch", v).apply()
+
+    /** Custom channel lists: name → channel ids (in insertion order). */
+    fun customLists(c: Context): LinkedHashMap<String, List<String>> {
+        val o = org.json.JSONObject(sp(c).getString("custom_lists", "{}")!!)
+        val out = LinkedHashMap<String, List<String>>()
+        o.keys().forEach { k ->
+            val a = o.getJSONArray(k)
+            out[k] = (0 until a.length()).map { a.getString(it) }
+        }
+        return out
+    }
+    fun setCustomLists(c: Context, v: Map<String, List<String>>) {
+        val o = org.json.JSONObject()
+        v.forEach { (k, ids) -> o.put(k, org.json.JSONArray(ids)) }
+        sp(c).edit().putString("custom_lists", o.toString()).apply()
+    }
+
+    // ---------- Updates ----------
+    fun lastUpdateCheck(c: Context) = sp(c).getLong("upd_check", 0)
+    fun setLastUpdateCheck(c: Context, v: Long) = sp(c).edit().putLong("upd_check", v).apply()
+
     // Startup
     fun autoplayLast(c: Context) = sp(c).getBoolean("autoplay", false)
     fun setAutoplayLast(c: Context, v: Boolean) = sp(c).edit().putBoolean("autoplay", v).apply()

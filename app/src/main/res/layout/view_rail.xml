@@ -1,0 +1,262 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Side navigation: icons only, expands with labels while it has focus -->
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/rail"
+    android:layout_width="80dp"
+    android:layout_height="match_parent"
+    android:layout_gravity="start"
+    android:layout_margin="12dp"
+    android:background="@drawable/bg_rail"
+    android:elevation="12dp"
+    android:gravity="center_vertical"
+    android:orientation="vertical"
+    android:paddingStart="8dp"
+    android:paddingEnd="8dp">
+
+    <ImageView
+        android:layout_width="40dp"
+        android:layout_height="40dp"
+        android:layout_gravity="center_horizontal"
+        android:layout_marginBottom="28dp"
+        android:importantForAccessibility="no"
+        android:src="@mipmap/ic_launcher" />
+
+    <LinearLayout
+        android:id="@+id/railHome"
+        android:layout_width="match_parent"
+        android:layout_height="52dp"
+        android:layout_marginBottom="6dp"
+        android:background="@drawable/bg_pill"
+        android:focusable="true"
+        android:gravity="center_vertical"
+        android:orientation="horizontal"
+        android:paddingStart="16dp"
+        android:paddingEnd="16dp">
+
+        <ImageView
+            android:layout_width="24dp"
+            android:layout_height="24dp"
+            android:duplicateParentState="true"
+            android:importantForAccessibility="no"
+            android:src="@drawable/ic_home"
+            android:tint="@color/rail_icon" />
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="16dp"
+            android:duplicateParentState="true"
+            android:fontFamily="@font/plex_medium"
+            android:maxLines="1"
+            android:tag="label"
+            android:text="@string/nav_home"
+            android:textColor="@color/row_text"
+            android:textSize="17sp"
+            android:visibility="gone" />
+    </LinearLayout>
+
+    <LinearLayout
+        android:id="@+id/railLive"
+        android:layout_width="match_parent"
+        android:layout_height="52dp"
+        android:layout_marginBottom="6dp"
+        android:background="@drawable/bg_pill"
+        android:focusable="true"
+        android:gravity="center_vertical"
+        android:orientation="horizontal"
+        android:paddingStart="16dp"
+        android:paddingEnd="16dp">
+
+        <ImageView
+            android:layout_width="24dp"
+            android:layout_height="24dp"
+            android:duplicateParentState="true"
+            android:importantForAccessibility="no"
+            android:src="@drawable/ic_tv"
+            android:tint="@color/rail_icon" />
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="16dp"
+            android:duplicateParentState="true"
+            android:fontFamily="@font/plex_medium"
+            android:maxLines="1"
+            android:tag="label"
+            android:text="@string/live_tv"
+            android:textColor="@color/row_text"
+            android:textSize="17sp"
+            android:visibility="gone" />
+    </LinearLayout>
+
+    <LinearLayout
+        android:id="@+id/railMovies"
+        android:layout_width="match_parent"
+        android:layout_height="52dp"
+        android:layout_marginBottom="6dp"
+        android:background="@drawable/bg_pill"
+        android:focusable="true"
+        android:gravity="center_vertical"
+        android:orientation="horizontal"
+        android:paddingStart="16dp"
+        android:paddingEnd="16dp">
+
+        <ImageView
+            android:layout_width="24dp"
+            android:layout_height="24dp"
+            android:duplicateParentState="true"
+            android:importantForAccessibility="no"
+            android:src="@drawable/ic_movie"
+            android:tint="@color/rail_icon" />
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="16dp"
+            android:duplicateParentState="true"
+            android:fontFamily="@font/plex_medium"
+            android:maxLines="1"
+            android:tag="label"
+            android:text="@string/movies"
+            android:textColor="@color/row_text"
+            android:textSize="17sp"
+            android:visibility="gone" />
+    </LinearLayout>
+
+    <LinearLayout
+        android:id="@+id/railSeries"
+        android:layout_width="match_parent"
+        android:layout_height="52dp"
+        android:layout_marginBottom="6dp"
+        android:background="@drawable/bg_pill"
+        android:focusable="true"
+        android:gravity="center_vertical"
+        android:orientation="horizontal"
+        android:paddingStart="16dp"
+        android:paddingEnd="16dp">
+
+        <ImageView
+            android:layout_width="24dp"
+            android:layout_height="24dp"
+            android:duplicateParentState="true"
+            android:importantForAccessibility="no"
+            android:src="@drawable/ic_series"
+            android:tint="@color/rail_icon" />
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="16dp"
+            android:duplicateParentState="true"
+            android:fontFamily="@font/plex_medium"
+            android:maxLines="1"
+            android:tag="label"
+            android:text="@string/series"
+            android:textColor="@color/row_text"
+            android:textSize="17sp"
+            android:visibility="gone" />
+    </LinearLayout>
+
+    <LinearLayout
+        android:id="@+id/railSearch"
+        android:layout_width="match_parent"
+        android:layout_height="52dp"
+        android:layout_marginBottom="6dp"
+        android:background="@drawable/bg_pill"
+        android:focusable="true"
+        android:gravity="center_vertical"
+        android:orientation="horizontal"
+        android:paddingStart="16dp"
+        android:paddingEnd="16dp">
+
+        <ImageView
+            android:layout_width="24dp"
+            android:layout_height="24dp"
+            android:duplicateParentState="true"
+            android:importantForAccessibility="no"
+            android:src="@drawable/ic_search"
+            android:tint="@color/rail_icon" />
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="16dp"
+            android:duplicateParentState="true"
+            android:fontFamily="@font/plex_medium"
+            android:maxLines="1"
+            android:tag="label"
+            android:text="@string/search_all"
+            android:textColor="@color/row_text"
+            android:textSize="17sp"
+            android:visibility="gone" />
+    </LinearLayout>
+
+    <LinearLayout
+        android:id="@+id/railMulti"
+        android:layout_width="match_parent"
+        android:layout_height="52dp"
+        android:layout_marginBottom="6dp"
+        android:background="@drawable/bg_pill"
+        android:focusable="true"
+        android:gravity="center_vertical"
+        android:orientation="horizontal"
+        android:paddingStart="16dp"
+        android:paddingEnd="16dp">
+
+        <ImageView
+            android:layout_width="24dp"
+            android:layout_height="24dp"
+            android:duplicateParentState="true"
+            android:importantForAccessibility="no"
+            android:src="@drawable/ic_grid"
+            android:tint="@color/rail_icon" />
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="16dp"
+            android:duplicateParentState="true"
+            android:fontFamily="@font/plex_medium"
+            android:maxLines="1"
+            android:tag="label"
+            android:text="@string/open_multiview"
+            android:textColor="@color/row_text"
+            android:textSize="17sp"
+            android:visibility="gone" />
+    </LinearLayout>
+
+    <LinearLayout
+        android:id="@+id/railSettings"
+        android:layout_width="match_parent"
+        android:layout_height="52dp"
+        android:layout_marginBottom="6dp"
+        android:background="@drawable/bg_pill"
+        android:focusable="true"
+        android:gravity="center_vertical"
+        android:orientation="horizontal"
+        android:paddingStart="16dp"
+        android:paddingEnd="16dp">
+
+        <ImageView
+            android:layout_width="24dp"
+            android:layout_height="24dp"
+            android:duplicateParentState="true"
+            android:importantForAccessibility="no"
+            android:src="@drawable/ic_settings"
+            android:tint="@color/rail_icon" />
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="16dp"
+            android:duplicateParentState="true"
+            android:fontFamily="@font/plex_medium"
+            android:maxLines="1"
+            android:tag="label"
+            android:text="@string/settings"
+            android:textColor="@color/row_text"
+            android:textSize="17sp"
+            android:visibility="gone" />
+    </LinearLayout>
+
+</LinearLayout>

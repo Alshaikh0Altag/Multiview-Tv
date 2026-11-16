@@ -1,0 +1,69 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="300dp"
+    android:layout_height="wrap_content"
+    android:layout_margin="6dp"
+    android:background="@drawable/bg_card_focus"
+    android:focusable="true"
+    android:orientation="vertical"
+    android:padding="14dp">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:gravity="center_vertical"
+        android:orientation="horizontal">
+
+        <TextView
+            android:id="@+id/mLeague"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:ellipsize="end"
+            android:maxLines="1"
+            android:textColor="@color/muted"
+            android:textSize="13sp" />
+
+        <TextView
+            android:id="@+id/mStatus"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:fontFamily="@font/plex_medium"
+            android:paddingStart="8dp"
+            android:paddingTop="2dp"
+            android:paddingEnd="8dp"
+            android:paddingBottom="2dp"
+            android:textColor="@color/text"
+            android:textSize="13sp" />
+    </LinearLayout>
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="10dp"
+        android:gravity="center_vertical"
+        android:orientation="horizontal">
+
+        <ImageView android:id="@+id/mHomeLogo" android:layout_width="28dp" android:layout_height="28dp" android:importantForAccessibility="no" />
+        <TextView android:id="@+id/mHome" android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1"
+            android:layout_marginStart="10dp" android:ellipsize="end" android:maxLines="1" android:fontFamily="@font/plex_medium"
+            android:textColor="@color/text" android:textSize="16sp" />
+        <TextView android:id="@+id/mHomeScore" android:layout_width="wrap_content" android:layout_height="wrap_content"
+            android:fontFamily="@font/plex_bold" android:textColor="@color/text" android:textSize="18sp" />
+    </LinearLayout>
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="8dp"
+        android:gravity="center_vertical"
+        android:orientation="horizontal">
+
+        <ImageView android:id="@+id/mAwayLogo" android:layout_width="28dp" android:layout_height="28dp" android:importantForAccessibility="no" />
+        <TextView android:id="@+id/mAway" android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1"
+            android:layout_marginStart="10dp" android:ellipsize="end" android:maxLines="1" android:fontFamily="@font/plex_medium"
+            android:textColor="@color/text" android:textSize="16sp" />
+        <TextView android:id="@+id/mAwayScore" android:layout_width="wrap_content" android:layout_height="wrap_content"
+            android:fontFamily="@font/plex_bold" android:textColor="@color/text" android:textSize="18sp" />
+    </LinearLayout>
+</LinearLayout>

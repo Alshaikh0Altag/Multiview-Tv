@@ -72,6 +72,7 @@ class VodActivity : BaseActivity() {
         loading = findViewById(R.id.vodLoading)
         empty = findViewById(R.id.vodEmpty)
         findViewById<TextView>(R.id.vodTitle).setText(if (isMovies) R.string.movies else R.string.series)
+        Rail.setup(this, if (isMovies) R.id.railMovies else R.id.railSeries)
 
         groupAdapter = GroupAdapter(
             onFocus = { g -> if (!g.locked && g.id != currentGroup) openGroup(g.id, delayMs = 350) },
@@ -80,7 +81,7 @@ class VodActivity : BaseActivity() {
         posterAdapter = PosterAdapter { open(it) }
         groups.layoutManager = LinearLayoutManager(this)
         groups.adapter = groupAdapter
-        posters.layoutManager = GridLayoutManager(this, 6)
+        posters.layoutManager = GridLayoutManager(this, 5)
         posters.adapter = posterAdapter
         posters.setItemViewCacheSize(24)
 

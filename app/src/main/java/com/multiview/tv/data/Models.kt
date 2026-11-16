@@ -36,6 +36,8 @@ data class MovieDetails(
     val rating: String?,
     val backdrop: String?,
     val poster: String?,
+    /** YouTube id (or link) of the trailer, when the provider has one */
+    val trailer: String? = null,
 )
 
 data class Series(

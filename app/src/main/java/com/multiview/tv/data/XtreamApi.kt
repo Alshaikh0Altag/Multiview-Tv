@@ -122,6 +122,7 @@ class XtreamApi(
             rating = i.str("rating")?.takeIf { it != "0" },
             backdrop = backdrop,
             poster = i.str("movie_image") ?: i.str("cover_big"),
+            trailer = i.str("youtube_trailer") ?: i.str("trailer"),
         )
     }
 

@@ -5,7 +5,6 @@ import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
 import android.view.KeyEvent
-import android.widget.Button
 import android.widget.TextView
 import android.widget.Toast
 import androidx.media3.exoplayer.ExoPlayer
@@ -23,8 +22,7 @@ import com.multiview.tv.player.PlayerFactory.playUrl
 class MainActivity : BaseActivity() {
 
     companion object {
-        /** Auto-play the last channel only once per app launch. */
-        private var autoplayDone = false
+        const val EXTRA_GROUP = "group"
     }
 
     private lateinit var groups: RecyclerView
@@ -56,10 +54,7 @@ class MainActivity : BaseActivity() {
         chTitle = findViewById(R.id.chTitle)
         chGroup = findViewById(R.id.chGroup)
         groupTitle = findViewById(R.id.groupTitle)
-        findViewById<Button>(R.id.navLive).apply {
-            isSelected = true
-            setOnClickListener { channels.getChildAt(0)?.requestFocus() ?: groups.getChildAt(0)?.requestFocus() }
-        }
+        Rail.setup(this, R.id.railLive) { releasePreview() }
 
         groupAdapter = GroupAdapter(
             onFocus = { g -> if (g.id != currentGroup) focusGroup(g) },
@@ -68,34 +63,23 @@ class MainActivity : BaseActivity() {
         channelAdapter = ChannelAdapter(
             onFocus = { c, _ -> onChannelFocused(c) },
             onClick = { _, pos -> openPlayer(pos) },
-            onLongClick = { c, _ -> addToMultiView(c) },
+            onLongClick = { c, _ -> ChannelActions.show(this, c) { refreshAfterChange() } },
         )
         groups.layoutManager = LinearLayoutManager(this)
         groups.adapter = groupAdapter
         channels.layoutManager = LinearLayoutManager(this)
         channels.adapter = channelAdapter
 
-        findViewById<Button>(R.id.openSearch).setOnClickListener {
-            releasePreview()
-            startActivity(Intent(this, SearchActivity::class.java))
-        }
-        findViewById<Button>(R.id.openMovies).setOnClickListener { openVod(VodActivity.MODE_MOVIES) }
-        findViewById<Button>(R.id.openSeries).setOnClickListener { openVod(VodActivity.MODE_SERIES) }
-        findViewById<Button>(R.id.openMultiView).setOnClickListener { openMultiView() }
-        findViewById<Button>(R.id.openSettings).setOnClickListener {
-            releasePreview()
-            startActivity(Intent(this, SettingsActivity::class.java))
-        }
-
-        warnConnections()
-        maybeAutoplay()
+        // opened from Home with a group already chosen
+        intent.getStringExtra(EXTRA_GROUP)?.let { currentGroup = it }
     }
 
     override fun onResume() {
         super.onResume()
         if (!::groupAdapter.isInitialized) return
         // Rebuild only when settings / favorites changed — rebuilding resets the lists and the remote's focus
-        val key = listOf(Settings.hiddenGroups(this), Settings.lockedGroups(this), unlockedGroups, Prefs.favorites(this))
+        val key = listOf(Settings.hiddenGroups(this), Settings.lockedGroups(this), unlockedGroups, Prefs.favorites(this),
+            Settings.hiddenChannels(this), Settings.customLists(this).keys)
             .joinToString("|") { it.sorted().joinToString(",") }
         if (key != stateKey) {
             stateKey = key
@@ -124,6 +108,9 @@ class MainActivity : BaseActivity() {
         val list = mutableListOf(
             GroupItem(Repository.RECENT_ID, getString(R.string.recent_channels), -1),
             GroupItem(Repository.FAVORITES_ID, getString(R.string.favorite), Repository.channels.count { favs.contains(it.id) }),
+            *Settings.customLists(this).map { (name, ids) ->
+                GroupItem(Repository.LIST_PREFIX + name, "★ $name", ids.size)
+            }.toTypedArray(),
             GroupItem(Repository.ALL_ID, getString(R.string.all_channels),
                 Repository.channels.count { it.categoryId !in excluded }),
         )
@@ -186,36 +173,12 @@ class MainActivity : BaseActivity() {
             .putExtra(PlayerActivity.EXTRA_INDEX, position))
     }
 
-    private fun maybeAutoplay() {
-        if (autoplayDone || !Settings.autoplayLast(this)) return
-        autoplayDone = true
-        val id = Settings.lastChannel(this) ?: return
-        val list = Repository.channelsIn(Repository.ALL_ID, emptySet(), excludedCategories("l:"))
-        val idx = list.indexOfFirst { it.id == id }
-        if (idx < 0) return
-        startActivity(Intent(this, PlayerActivity::class.java)
-            .putExtra(PlayerActivity.EXTRA_GROUP, Repository.ALL_ID)
-            .putExtra(PlayerActivity.EXTRA_INDEX, idx))
-    }
-
-    private fun addToMultiView(c: Channel) {
-        val slot = Repository.addToMultiView(c)
-        val msg = if (slot < 0) getString(R.string.multiview_full) else getString(R.string.added_to_slot, slot + 1)
-        Toast.makeText(this, msg, Toast.LENGTH_SHORT).show()
-    }
-
-    private fun openVod(mode: String) {
-        if (!Repository.supportsVod) {
-            Toast.makeText(this, R.string.vod_xtream_only, Toast.LENGTH_LONG).show()
-            return
-        }
-        releasePreview()
-        startActivity(Intent(this, VodActivity::class.java).putExtra(VodActivity.EXTRA_MODE, mode))
-    }
-
-    private fun openMultiView() {
-        releasePreview()
-        startActivity(Intent(this, MultiViewActivity::class.java))
+    /** After a channel was hidden, locked, added to a list or to favorites. */
+    private fun refreshAfterChange() {
+        Repository.hiddenChannels = Settings.hiddenChannels(this)
+        Repository.customLists = Settings.customLists(this)
+        stateKey = ""
+        onResume()
     }
 
     private fun warnConnections() {
