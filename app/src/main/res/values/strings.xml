@@ -257,4 +257,6 @@
     <string name="sort_time">ترتيب حسب الوقت</string>
     <string name="no_live_matches">لا توجد مباريات مباشرة الآن — اضغط لتغيير الفلتر</string>
     <string name="crash_title">حدث خطأ في المرة السابقة — صوّر هذه الرسالة وأرسلها</string>
+    <string name="resume_play">متابعة التشغيل</string>
+    <string name="remove_continue">حذف من متابعة المشاهدة</string>
 </resources>

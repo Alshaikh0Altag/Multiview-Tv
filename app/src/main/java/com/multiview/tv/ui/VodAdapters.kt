@@ -14,6 +14,7 @@ data class PosterItem(val id: String, val title: String, val image: String?, val
 
 class PosterAdapter(
     private val onClick: (PosterItem) -> Unit,
+    private val onLongClick: ((PosterItem) -> Unit)? = null,
 ) : RecyclerView.Adapter<PosterAdapter.VH>() {
 
     init { setHasStableIds(true) }
@@ -33,6 +34,12 @@ class PosterAdapter(
         val h = VH(LayoutInflater.from(parent.context).inflate(R.layout.item_poster, parent, false))
         h.itemView.setOnClickListener {
             h.bindingAdapterPosition.takeIf { it >= 0 }?.let { onClick(items[it]) }
+        }
+        onLongClick?.let { cb ->
+            h.itemView.setOnLongClickListener {
+                h.bindingAdapterPosition.takeIf { it >= 0 }?.let { cb(items[it]) }
+                true
+            }
         }
         h.itemView.setOnFocusChangeListener { v, has ->
             val s = if (has) 1.06f else 1f

@@ -81,7 +81,14 @@ class VodActivity : BaseActivity() {
             onClick = { g -> withPin(prefix + g.id) { buildGroups(); openGroup(g.id, delayMs = 0) } },
             onLongClick = { g -> if (!g.id.startsWith("__")) pinMenu(g) },
         )
-        posterAdapter = PosterAdapter { open(it) }
+        posterAdapter = PosterAdapter(
+            onClick = { open(it) },
+            onLongClick = { p ->
+                if (currentGroup == G_CONTINUE) continueItems.firstOrNull { it.key == p.id }?.let { c ->
+                    ContinueActions.show(this, c) { currentGroup?.let { g -> reloadQuietly(g) } }
+                }
+            },
+        )
         groups.layoutManager = LinearLayoutManager(this)
         groups.adapter = groupAdapter
         posters.layoutManager = GridLayoutManager(this, 5)

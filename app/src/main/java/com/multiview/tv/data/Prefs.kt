@@ -90,6 +90,9 @@ object Prefs {
         e.apply()
     }
 
+    fun clearPosition(c: Context, key: String) =
+        c.getSharedPreferences("$FILE.resume", Context.MODE_PRIVATE).edit().remove(key).apply()
+
     fun position(c: Context, key: String): Long =
         c.getSharedPreferences("$FILE.resume", Context.MODE_PRIVATE).getLong(key, 0L)
 }

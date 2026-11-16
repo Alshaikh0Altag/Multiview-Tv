@@ -249,6 +249,7 @@ class HomeActivity : BaseActivity() {
         when (card) {
             is Card.ChannelCard -> ChannelActions.show(this, card.c) { signature = ""; buildRows() }
             is Card.MatchCard, is Card.Message -> matchesMenu()
+            is Card.ContinueCard -> ContinueActions.show(this, card.item) { buildRows() }
             else -> Unit
         }
     }
