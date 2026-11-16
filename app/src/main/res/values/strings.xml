@@ -232,4 +232,11 @@
     <string name="delete_list_q">حذف هذه القائمة؟ (القنوات نفسها لن تُحذف)</string>
     <string name="set_section_about">حول التطبيق</string>
     <string name="set_version">الإصدار %1$s — التحقق من التحديثات</string>
+    <string name="pin_home">📌 إظهار أحدث ما فيها في الصفحة الرئيسية</string>
+    <string name="unpin_home">إزالة من الصفحة الرئيسية</string>
+    <string name="pinned">أُضيفت للصفحة الرئيسية</string>
+    <string name="unpinned">أُزيلت من الصفحة الرئيسية</string>
+    <string name="newest_movies_in">أحدث %1$s</string>
+    <string name="newest_series_in">أحدث %1$s</string>
+    <string name="loading_short">جارِ التحميل…</string>
 </resources>

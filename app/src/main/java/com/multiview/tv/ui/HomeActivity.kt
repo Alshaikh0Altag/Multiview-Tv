@@ -57,6 +57,9 @@ class HomeActivity : BaseActivity() {
     private lateinit var rowsView: RecyclerView
     private val rowAdapter = RowAdapter()
     private var matches: List<Match>? = null
+    /** Newest titles of the movie/series categories pinned to Home ("m:<id>" / "s:<id>"). */
+    private val pinnedCards = HashMap<String, List<Card>>()
+    private val pinnedLoading = HashSet<String>()
     private var signature = ""
     private val handler = Handler(Looper.getMainLooper())
     private val refreshMatches = object : Runnable {
@@ -91,6 +94,7 @@ class HomeActivity : BaseActivity() {
         super.onResume()
         if (!::rowsView.isInitialized) return
         buildRows()
+        loadPinned()
         handler.removeCallbacks(refreshMatches)
         if ("matches" in Settings.homeRows(this)) handler.post(refreshMatches)
     }
@@ -118,6 +122,25 @@ class HomeActivity : BaseActivity() {
         lifecycleScope.launch {
             matches = runCatching { Matches.today(Settings.leagues(this@HomeActivity), force) }.getOrDefault(emptyList())
             buildRows()
+        }
+    }
+
+    private fun loadPinned() {
+        if (!Repository.supportsVod) return
+        val pinned = Settings.pinnedVod(this).keys.filter { it !in pinnedCards && it !in pinnedLoading }
+        if (pinned.isEmpty()) return
+        pinnedLoading += pinned
+        lifecycleScope.launch {
+            for (key in pinned) {
+                val cat = key.substring(2)
+                val cards: List<Card> = runCatching {
+                    if (key.startsWith("m:")) Repository.moviesIn(cat).sortedByDescending { it.added }.take(20).map { Card.MovieCard(it) }
+                    else Repository.seriesIn(cat).sortedByDescending { it.added }.take(20).map { Card.SeriesCard(it) }
+                }.getOrDefault(emptyList())
+                pinnedCards[key] = cards
+                pinnedLoading -= key
+                buildRows()
+            }
         }
     }
 
@@ -153,6 +176,19 @@ class HomeActivity : BaseActivity() {
             "fav_series" -> Library.favoriteSeries(this).takeIf { it.isNotEmpty() }?.let {
                 Repository.registerSeries(it)
                 rows += Row("fav_series", getString(R.string.favorite_series), it.map { s -> Card.SeriesCard(s) })
+            }
+        }
+        // Pinned movie / series categories: their newest additions
+        val lockedNow = Settings.lockedGroups(this) - unlockedGroups
+        val hiddenG = Settings.hiddenGroups(this)
+        for ((key, name) in Settings.pinnedVod(this)) {
+            val groupKey = key   // same "m:" / "s:" prefix as the group lock keys
+            if (groupKey in hiddenG || groupKey in lockedNow) continue
+            val cards = pinnedCards[key]
+            val title = getString(if (key.startsWith("m:")) R.string.newest_movies_in else R.string.newest_series_in, name)
+            when {
+                cards == null -> rows += Row("pin:$key", title, listOf(Card.Message(getString(R.string.loading_short))))
+                cards.isNotEmpty() -> rows += Row("pin:$key", title, cards)
             }
         }
         if (rows.isEmpty()) rows += Row("empty", "", listOf(Card.Message(getString(R.string.home_empty))))

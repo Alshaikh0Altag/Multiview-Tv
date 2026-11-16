@@ -8,6 +8,8 @@ import android.view.View
 import android.widget.EditText
 import android.widget.ProgressBar
 import android.widget.TextView
+import android.widget.Toast
+import androidx.appcompat.app.AlertDialog
 import androidx.lifecycle.lifecycleScope
 import androidx.recyclerview.widget.GridLayoutManager
 import androidx.recyclerview.widget.LinearLayoutManager
@@ -77,6 +79,7 @@ class VodActivity : BaseActivity() {
         groupAdapter = GroupAdapter(
             onFocus = { g -> if (!g.locked && g.id != currentGroup) openGroup(g.id, delayMs = 350) },
             onClick = { g -> withPin(prefix + g.id) { buildGroups(); openGroup(g.id, delayMs = 0) } },
+            onLongClick = { g -> if (!g.id.startsWith("__")) pinMenu(g) },
         )
         posterAdapter = PosterAdapter { open(it) }
         groups.layoutManager = LinearLayoutManager(this)
@@ -98,6 +101,22 @@ class VodActivity : BaseActivity() {
         super.onResume()
         // Continue watching / favorites change after playing or on the info screen
         if (currentGroup == G_CONTINUE || currentGroup == G_FAV) currentGroup?.let { reloadQuietly(it) }
+    }
+
+    /** Long-press a category: show its newest titles on the home screen. */
+    private fun pinMenu(g: GroupItem) {
+        val key = (if (isMovies) "m:" else "s:") + g.id
+        val pinned = Settings.pinnedVod(this)
+        val isPinned = key in pinned
+        AlertDialog.Builder(this)
+            .setTitle(g.name)
+            .setItems(arrayOf(getString(if (isPinned) R.string.unpin_home else R.string.pin_home))) { _, _ ->
+                if (isPinned) pinned.remove(key) else pinned[key] = g.name
+                Settings.setPinnedVod(this, pinned)
+                Toast.makeText(this, if (isPinned) R.string.unpinned else R.string.pinned, Toast.LENGTH_SHORT).show()
+                buildGroups()
+            }
+            .show()
     }
 
     private fun categories(): List<Category> =
@@ -128,6 +147,7 @@ class VodActivity : BaseActivity() {
     private fun buildGroups() {
         val hidden = Settings.hiddenGroups(this)
         val locked = Settings.lockedGroups(this)
+        val pinnedKeys = Settings.pinnedVod(this).keys
         val special = listOf(
             GroupItem(G_CONTINUE, getString(R.string.continue_watching), -1),
             GroupItem(G_FAV, getString(R.string.favorite), -1),
@@ -138,7 +158,8 @@ class VodActivity : BaseActivity() {
             .filter { prefix + it.id !in hidden }
             .map { c ->
                 val key = prefix + c.id
-                GroupItem(c.id, c.name, count = -1, locked = key in locked && key !in unlockedGroups)
+                val pin = if ((if (isMovies) "m:" else "s:") + c.id in pinnedKeys) "📌 " else ""
+                GroupItem(c.id, pin + c.name, count = -1, locked = key in locked && key !in unlockedGroups)
             }
         groupAdapter.selectedId = currentGroup
     }

@@ -83,21 +83,84 @@ object Settings {
 
     /** ESPN league codes shown in "today's matches". */
     val ALL_LEAGUES = linkedMapOf(
+        // السعودية والعرب
         "ksa.1" to "دوري روشن السعودي",
-        "afc.champions" to "دوري أبطال آسيا",
+        "ksa.kings.cup" to "كأس خادم الحرمين الشريفين",
+        "egy.1" to "الدوري المصري",
+        "uae.1" to "الدوري الإماراتي",
+        "qat.1" to "الدوري القطري",
+        "mar.1" to "الدوري المغربي",
+        "tun.1" to "الدوري التونسي",
+        "alg.1" to "الدوري الجزائري",
+        // آسيا وأفريقيا
+        "afc.champions" to "دوري أبطال آسيا للنخبة",
+        "afc.cup" to "دوري أبطال آسيا 2",
+        "afc.asian.cup" to "كأس آسيا",
+        "caf.champions" to "دوري أبطال أفريقيا",
+        "caf.nations" to "كأس أمم أفريقيا",
+        // أوروبا — بطولات
         "uefa.champions" to "دوري أبطال أوروبا",
-        "eng.1" to "الدوري الإنجليزي",
-        "esp.1" to "الدوري الإسباني",
-        "ita.1" to "الدوري الإيطالي",
-        "ger.1" to "الدوري الألماني",
-        "fra.1" to "الدوري الفرنسي",
         "uefa.europa" to "الدوري الأوروبي",
+        "uefa.europa.conf" to "دوري المؤتمر الأوروبي",
+        "uefa.super_cup" to "السوبر الأوروبي",
+        "uefa.nations" to "دوري الأمم الأوروبية",
+        "uefa.euro" to "كأس أمم أوروبا",
+        // أوروبا — دوريات وكؤوس
+        "eng.1" to "الدوري الإنجليزي",
+        "eng.2" to "دوري الدرجة الأولى الإنجليزي",
+        "eng.fa" to "كأس الاتحاد الإنجليزي",
+        "eng.league_cup" to "كأس الرابطة الإنجليزية",
+        "esp.1" to "الدوري الإسباني",
+        "esp.copa_del_rey" to "كأس ملك إسبانيا",
+        "esp.super_cup" to "السوبر الإسباني",
+        "ita.1" to "الدوري الإيطالي",
+        "ita.coppa_italia" to "كأس إيطاليا",
+        "ger.1" to "الدوري الألماني",
+        "ger.dfb_pokal" to "كأس ألمانيا",
+        "fra.1" to "الدوري الفرنسي",
+        "fra.coupe_de_france" to "كأس فرنسا",
+        "ned.1" to "الدوري الهولندي",
+        "por.1" to "الدوري البرتغالي",
+        "tur.1" to "الدوري التركي",
+        "sco.1" to "الدوري الاسكتلندي",
+        "bel.1" to "الدوري البلجيكي",
+        // العالم
         "fifa.world" to "كأس العالم",
+        "fifa.cwc" to "كأس العالم للأندية",
+        "fifa.worldq.afc" to "تصفيات كأس العالم — آسيا",
+        "fifa.worldq.caf" to "تصفيات كأس العالم — أفريقيا",
+        "fifa.worldq.uefa" to "تصفيات كأس العالم — أوروبا",
+        "fifa.worldq.conmebol" to "تصفيات كأس العالم — أمريكا الجنوبية",
         "fifa.friendly" to "مباريات ودية دولية",
+        "club.friendly" to "مباريات ودية للأندية",
+        "conmebol.libertadores" to "كوبا ليبرتادوريس",
+        "conmebol.america" to "كوبا أمريكا",
+        "usa.1" to "الدوري الأمريكي MLS",
+        "bra.1" to "الدوري البرازيلي",
+        "arg.1" to "الدوري الأرجنتيني",
     )
     fun leagues(c: Context): Set<String> =
-        sp(c).getStringSet("leagues", setOf("ksa.1", "afc.champions", "uefa.champions", "eng.1", "esp.1", "ita.1", "fifa.world"))!!
+        sp(c).getStringSet("leagues", setOf(
+            "ksa.1", "ksa.kings.cup", "egy.1", "afc.champions", "uefa.champions", "uefa.europa",
+            "eng.1", "esp.1", "ita.1", "ger.1", "fra.1", "fifa.world", "fifa.cwc", "fifa.worldq.afc",
+        ))!!
     fun setLeagues(c: Context, v: Set<String>) = sp(c).edit().putStringSet("leagues", v).apply()
+
+    /**
+     * Movie / series categories pinned to the home screen (long-press a category).
+     * Each entry: "m:<categoryId>" or "s:<categoryId>" → display name. Insertion order kept.
+     */
+    fun pinnedVod(c: Context): LinkedHashMap<String, String> {
+        val o = org.json.JSONObject(sp(c).getString("pinned_vod", "{}")!!)
+        val out = LinkedHashMap<String, String>()
+        o.keys().forEach { out[it] = o.getString(it) }
+        return out
+    }
+    fun setPinnedVod(c: Context, v: Map<String, String>) {
+        val o = org.json.JSONObject()
+        v.forEach { (k, n) -> o.put(k, n) }
+        sp(c).edit().putString("pinned_vod", o.toString()).apply()
+    }
 
     // ---------- Movies & series playback ----------
     /** Seconds moved by ◀ ▶ when the controls are hidden */

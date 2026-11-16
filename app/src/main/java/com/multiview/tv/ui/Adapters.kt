@@ -24,6 +24,7 @@ private const val PAYLOAD_STATE = "state"
 class GroupAdapter(
     private val onFocus: (GroupItem) -> Unit,
     private val onClick: (GroupItem) -> Unit = onFocus,
+    private val onLongClick: ((GroupItem) -> Unit)? = null,
 ) : RecyclerView.Adapter<GroupAdapter.VH>() {
 
     init { setHasStableIds(true) }
@@ -56,6 +57,12 @@ class GroupAdapter(
         }
         h.itemView.setOnClickListener {
             h.bindingAdapterPosition.takeIf { it >= 0 }?.let { onClick(items[it]) }
+        }
+        onLongClick?.let { cb ->
+            h.itemView.setOnLongClickListener {
+                h.bindingAdapterPosition.takeIf { it >= 0 }?.let { cb(items[it]) }
+                true
+            }
         }
         return h
     }
