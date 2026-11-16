@@ -62,6 +62,8 @@ data class StandingRow(
     val points: Int,
 )
 
+data class StandingTable(val title: String?, val rows: List<StandingRow>)
+
 data class MatchDetails(
     val match: Match,
     val venue: String?,
@@ -72,6 +74,8 @@ data class MatchDetails(
     /** the two teams' rows in their league / group table */
     val standings: List<StandingRow> = emptyList(),
     val standingsTitle: String? = null,
+    /** the whole table (or group) the two teams play in */
+    val fullTable: StandingTable? = null,
 )
 
 /**
@@ -92,6 +96,64 @@ object Matches {
         if (!tennis) return football
         val t = runCatching { tennisToday() }.getOrDefault(emptyList())
         return football + t
+    }
+
+    // ---------- league table (ESPN standings) ----------
+
+    private val tableCache = HashMap<String, Pair<Long, List<StandingTable>>>()
+
+    /** All tables of a competition: one for a league, one per group for group stages. */
+    private fun tables(league: String): List<StandingTable> {
+        tableCache[league]?.let { (t, v) -> if (System.currentTimeMillis() - t < 10 * 60_000) return v }
+        val json = JSONObject(Http.get("https://site.api.espn.com/apis/v2/sports/soccer/$league/standings", timeoutMs = 12_000))
+        val out = ArrayList<StandingTable>()
+        fun parse(node: JSONObject, title: String?) {
+            val entries = node.optJSONObject("standings")?.optJSONArray("entries") ?: return
+            val rows = ArrayList<StandingRow>()
+            for (i in 0 until entries.length()) {
+                val e = entries.getJSONObject(i)
+                val team = e.optJSONObject("team") ?: continue
+                val stats = HashMap<String, String>()
+                e.optJSONArray("stats")?.let { st ->
+                    for (k in 0 until st.length()) {
+                        val s = st.getJSONObject(k)
+                        val v = s.optString("displayValue").ifBlank { s.optString("value") }
+                        stats[s.optString("name")] = v
+                        s.optString("type").takeIf { it.isNotBlank() }?.let { stats[it] = v }
+                    }
+                }
+                fun num(vararg keys: String) = keys.firstNotNullOfOrNull { stats[it]?.substringBefore('.')?.toIntOrNull() }
+                val gd = stats["pointDifferential"] ?: stats["goalDifference"] ?: "0"
+                rows += StandingRow(
+                    position = num("rank") ?: (i + 1),
+                    team = team.optString("displayName").ifBlank { team.optString("name") },
+                    teamId = team.optString("id").ifBlank { null },
+                    played = num("gamesPlayed") ?: 0,
+                    goalDiff = gd.substringBefore('.').let { if (!it.startsWith("-") && it != "0") "+$it" else it },
+                    points = num("points") ?: 0,
+                )
+            }
+            if (rows.isNotEmpty()) out += StandingTable(title, rows.sortedBy { it.position })
+        }
+        val children = json.optJSONArray("children")
+        if (children != null && children.length() > 0) {
+            for (i in 0 until children.length()) {
+                val ch = children.getJSONObject(i)
+                parse(ch, ch.optString("name").ifBlank { null })
+            }
+        } else parse(json, json.optString("name").ifBlank { null })
+        tableCache[league] = System.currentTimeMillis() to out
+        return out
+    }
+
+    /** The table (league or group) that has both teams — or at least one of them. */
+    fun standings(m: Match): StandingTable? {
+        if (m.sport != "football") return null
+        val ids = setOfNotNull(m.home.id, m.away.id)
+        if (ids.isEmpty()) return null
+        val all = tables(m.leagueCode)
+        return all.firstOrNull { t -> ids.all { id -> t.rows.any { it.teamId == id } } }
+            ?: all.firstOrNull { t -> t.rows.any { it.teamId in ids } }
     }
 
     /** Match centre (tennis: what the scoreboard already gives). */
@@ -219,6 +281,7 @@ object Matches {
                     shortName = team.optString("shortDisplayName").ifBlank { team.optString("displayName") },
                     logo = team.optString("logo").ifBlank { null },
                     score = ct.optString("score").ifBlank { null },
+                    id = team.optString("id").ifBlank { null },
                 )
                 if (ct.optString("homeAway") == "home") home = tm else away = tm
             }
@@ -339,7 +402,11 @@ object Matches {
                 (o.optJSONObject("media")?.optString("shortName") ?: o.optString("station")).takeIf { !it.isNullOrBlank() }?.let { broadcasters += it }
             }
         }
-        MatchDetails(match, venue, events, stats, broadcasters.toList())
+        val table = runCatching { standings(m) }.getOrNull()
+        val ids = setOfNotNull(m.home.id, m.away.id)
+        val mine = table?.rows?.filter { it.teamId in ids }.orEmpty()
+        MatchDetails(match, venue, events, stats, broadcasters.toList(),
+            standings = mine, standingsTitle = table?.title, fullTable = table?.takeIf { mine.isNotEmpty() })
     }
 
     /**

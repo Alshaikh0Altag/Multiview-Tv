@@ -25,6 +25,7 @@ import androidx.media3.ui.PlayerView
 import com.multiview.tv.R
 import com.multiview.tv.data.Settings
 import com.multiview.tv.ui.BaseActivity
+import com.multiview.tv.ui.showWrapped
 
 /**
  * The options menu used by both players:
@@ -56,7 +57,7 @@ object PlayerMenu {
 
         AlertDialog.Builder(activity)
             .setItems(items.map { it.first }.toTypedArray()) { _, i -> items[i].second() }
-            .show()
+            .showWrapped()
     }
 
     // ---------- tracks ----------
@@ -95,7 +96,7 @@ object PlayerMenu {
                 player.trackSelectionParameters = b.build()
                 d.dismiss()
             }
-            .show()
+            .showWrapped()
     }
 
     fun audio(activity: Activity, player: ExoPlayer) {
@@ -116,7 +117,7 @@ object PlayerMenu {
                     .build()
                 d.dismiss()
             }
-            .show()
+            .showWrapped()
     }
 
     fun subtitles(activity: Activity, player: ExoPlayer) {
@@ -141,7 +142,7 @@ object PlayerMenu {
                 player.trackSelectionParameters = b.build()
                 d.dismiss()
             }
-            .show()
+            .showWrapped()
     }
 
     // ---------- picture ----------
@@ -165,7 +166,7 @@ object PlayerMenu {
                 Settings.setResizeMode(activity, resizeModes[which])
                 d.dismiss()
             }
-            .show()
+            .showWrapped()
     }
 
     fun applySavedResizeMode(activity: Activity, playerView: PlayerView) {
@@ -202,7 +203,7 @@ object PlayerMenu {
             .setTitle(R.string.menu_info)
             .setMessage(lines.joinToString("\n"))
             .setPositiveButton(android.R.string.ok, null)
-            .show()
+            .showWrapped()
     }
 
     fun external(activity: Activity, url: String) {

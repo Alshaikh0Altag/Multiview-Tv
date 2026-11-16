@@ -106,6 +106,9 @@
                         android:layout_height="wrap_content" android:paddingStart="0dp" android:visibility="gone" />
                     <LinearLayout android:id="@+id/mdTable" android:layout_width="match_parent" android:layout_height="wrap_content"
                         android:orientation="vertical" />
+                    <Button android:id="@+id/mdFullTable" style="@style/TvButton" android:layout_width="wrap_content"
+                        android:layout_height="wrap_content" android:layout_marginTop="6dp" android:layout_marginBottom="6dp"
+                        android:text="@string/md_full_table" android:visibility="gone" />
                     <TextView style="@style/SectionLabel" android:layout_width="wrap_content" android:layout_height="wrap_content"
                         android:paddingStart="0dp" android:text="@string/md_stats" />
                     <LinearLayout android:id="@+id/mdStats" android:layout_width="match_parent" android:layout_height="wrap_content"

@@ -184,6 +184,10 @@ class MatchActivity : BaseActivity() {
             addTableRow(table, "#", getString(R.string.md_team), getString(R.string.md_played), "+/-", getString(R.string.md_points), header = true)
             d.standings.forEach { r -> addTableRow(table, r.position.toString(), r.team, r.played.toString(), r.goalDiff, r.points.toString()) }
         }
+        val full = findViewById<android.widget.Button>(R.id.mdFullTable)
+        val ft = d.fullTable
+        full.visibility = if (ft != null && ft.rows.size > d.standings.size) View.VISIBLE else View.GONE
+        full.setOnClickListener { ft?.let { showFullTable(it, d.standings.mapNotNull { r -> r.teamId }.toSet()) } }
 
         val stats = findViewById<LinearLayout>(R.id.mdStats)
         stats.removeAllViews()
@@ -199,8 +203,29 @@ class MatchActivity : BaseActivity() {
         findViewById<TextView>(R.id.mdDiag).visibility = View.GONE
     }
 
-    private fun addTableRow(parent: LinearLayout, pos: String, team: String, played: String, gd: String, pts: String, header: Boolean = false) {
-        val row = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; setPadding(0, dp(4), 0, dp(4)) }
+    /** Whole league / group table in a dialog; the two teams of this match are highlighted. */
+    private fun showFullTable(t: com.multiview.tv.data.StandingTable, highlight: Set<String>) {
+        val box = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; setPadding(dp(20), dp(8), dp(20), dp(8)) }
+        addTableRow(box, "#", getString(R.string.md_team), getString(R.string.md_played), "+/-", getString(R.string.md_points), header = true)
+        t.rows.forEach { r ->
+            addTableRow(box, r.position.toString(), r.team, r.played.toString(), r.goalDiff, r.points.toString(),
+                highlight = r.teamId in highlight)
+        }
+        // focusable so the remote can scroll a long table
+        val scroll = android.widget.ScrollView(this).apply { isFocusable = true; addView(box) }
+        androidx.appcompat.app.AlertDialog.Builder(this)
+            .setTitle(getString(R.string.md_table) + (t.title?.let { " — $it" } ?: ""))
+            .setView(scroll)
+            .setPositiveButton(android.R.string.ok, null)
+            .showWrapped()
+    }
+
+    private fun addTableRow(parent: LinearLayout, pos: String, team: String, played: String, gd: String, pts: String,
+                            header: Boolean = false, highlight: Boolean = false) {
+        val row = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL; setPadding(dp(6), dp(4), dp(6), dp(4))
+            if (highlight) setBackgroundResource(R.drawable.bg_logo)
+        }
         val color = if (header) R.color.muted else R.color.text
         val size = if (header) 13f else 16f
         fun cell(t: String, w: Float, g: Int) = TextView(this).apply {

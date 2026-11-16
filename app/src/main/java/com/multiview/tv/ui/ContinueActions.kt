@@ -28,7 +28,7 @@ object ContinueActions {
                     }
                 }
             }
-            .show()
+            .showWrapped()
     }
 
     fun play(a: BaseActivity, item: ContinueItem, resume: Int) {

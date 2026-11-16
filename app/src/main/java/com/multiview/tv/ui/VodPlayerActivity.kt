@@ -136,7 +136,7 @@ class VodPlayerActivity : BaseActivity() {
                 .setPositiveButton(getString(R.string.resume_from, fmt(saved))) { _, _ -> p.seekTo(saved); p.play() }
                 .setNegativeButton(R.string.start_over) { _, _ -> p.play() }
                 .setOnCancelListener { p.play() }
-                .show()
+                .showWrapped()
         } else {
             p.play()
         }
@@ -239,7 +239,7 @@ class VodPlayerActivity : BaseActivity() {
             .setSingleChoiceItems(labels, speeds.indexOfFirst { it == p.playbackParameters.speed }) { d, i ->
                 p.setPlaybackSpeed(speeds[i]); d.dismiss()
             }
-            .show()
+            .showWrapped()
     }
 
     override fun dispatchKeyEvent(event: KeyEvent): Boolean {

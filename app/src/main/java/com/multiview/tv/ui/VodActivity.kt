@@ -123,7 +123,7 @@ class VodActivity : BaseActivity() {
                 Toast.makeText(this, if (isPinned) R.string.unpinned else R.string.pinned, Toast.LENGTH_SHORT).show()
                 buildGroups()
             }
-            .show()
+            .showWrapped()
     }
 
     private fun categories(): List<Category> =

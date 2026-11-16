@@ -127,7 +127,7 @@
     <string name="director">الإخراج: %1$s</string>
     <string name="cast">التمثيل: %1$s</string>
     <string name="menu_lock">قفل الشاشة</string>
-    <string name="screen_locked">🔒 الشاشة مقفلة — اضغط مطوّلاً على OK للفتح</string>
+    <string name="screen_locked">🔒 الشاشة مقفلة — اضغط مطوّلاً على OK لمدة 3 ثوانٍ للفتح</string>
     <string name="screen_unlocked">🔓 تم فتح القفل</string>
     <string name="set_clock_opacity">شفافية الساعة: %1$d%%</string>
     <string name="search_all">بحث</string>
@@ -270,4 +270,5 @@
     <string name="md_points">نقاط</string>
     <string name="md_no_broadcaster">لم يُعلن الناقل بعد</string>
     <string name="md_set_n">المجموعة %1$d</string>
+    <string name="md_full_table">الترتيب الكامل</string>
 </resources>

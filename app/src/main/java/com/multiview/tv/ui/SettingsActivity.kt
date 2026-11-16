@@ -187,7 +187,7 @@ class SettingsActivity : BaseActivity() {
             .setSingleChoiceItems(values.map { qualityLabel(it) }.toTypedArray(), values.indexOf(Settings.maxHeight(this))) { d, i ->
                 Settings.setMaxHeight(this, values[i]); refresh(); d.dismiss()
             }
-            .show()
+            .showWrapped()
     }
 
     private fun playlists() {
@@ -205,10 +205,10 @@ class SettingsActivity : BaseActivity() {
                         .setItems(arrayOf(getString(R.string.use_playlist), getString(R.string.remove))) { _, w ->
                             if (w == 0) switchTo(i) else { Prefs.removePlaylist(this, i); refresh() }
                         }
-                        .show()
+                        .showWrapped()
                 }
             }
-            .show()
+            .showWrapped()
     }
 
     private fun switchTo(index: Int) {
@@ -251,7 +251,7 @@ class SettingsActivity : BaseActivity() {
                     else Settings.setLockedGroups(this@SettingsActivity, current)
                 }
                 .setNegativeButton(android.R.string.cancel, null)
-                .show()
+                .showWrapped()
         }
     }
 
@@ -278,7 +278,7 @@ class SettingsActivity : BaseActivity() {
             .setTitle(R.string.set_account)
             .setMessage(lines.joinToString("\n"))
             .setPositiveButton(android.R.string.ok, null)
-            .show()
+            .showWrapped()
     }
 
     private fun userAgentDialog() {
@@ -300,7 +300,7 @@ class SettingsActivity : BaseActivity() {
                 Settings.setUserAgent(this, ""); applyGlobalSettings(); refresh()
             }
             .setNegativeButton(android.R.string.cancel, null)
-            .show()
+            .showWrapped()
     }
 
     private fun homeRows() {
@@ -317,7 +317,7 @@ class SettingsActivity : BaseActivity() {
             .setMultiChoiceItems(labels.toTypedArray(), checked) { _, i, on -> if (on) current += all[i] else current -= all[i] }
             .setPositiveButton(android.R.string.ok) { _, _ -> Settings.setHomeRows(this, all.filter { it in current }) }
             .setNegativeButton(android.R.string.cancel, null)
-            .show()
+            .showWrapped()
     }
 
     private fun leagues() {
@@ -330,7 +330,7 @@ class SettingsActivity : BaseActivity() {
             }
             .setPositiveButton(android.R.string.ok) { _, _ -> Settings.setLeagues(this, current) }
             .setNegativeButton(android.R.string.cancel, null)
-            .show()
+            .showWrapped()
     }
 
     private fun hiddenChannels() {
@@ -347,7 +347,7 @@ class SettingsActivity : BaseActivity() {
                 Settings.setHiddenChannels(this, hidden); applyGlobalSettings(); refresh()
             }
             .setNegativeButton(android.R.string.cancel, null)
-            .show()
+            .showWrapped()
     }
 
     private fun customLists() {
@@ -364,9 +364,9 @@ class SettingsActivity : BaseActivity() {
                         lists.remove(names[i]); Settings.setCustomLists(this, lists); applyGlobalSettings(); refresh()
                     }
                     .setNegativeButton(android.R.string.cancel, null)
-                    .show()
+                    .showWrapped()
             }
-            .show()
+            .showWrapped()
     }
 
     private fun changePin() {
@@ -383,6 +383,6 @@ class SettingsActivity : BaseActivity() {
                 else { Settings.setPin(this, v); Toast.makeText(this, R.string.pin_saved, Toast.LENGTH_SHORT).show() }
             }
             .setNegativeButton(android.R.string.cancel, null)
-            .show()
+            .showWrapped()
     }
 }

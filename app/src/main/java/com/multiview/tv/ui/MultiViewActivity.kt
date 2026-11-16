@@ -165,7 +165,7 @@ class MultiViewActivity : BaseActivity() {
             .setItems(groups.map { it.second }.toTypedArray()) { _, gi ->
                 withPin("l:${groups[gi].first}") { pickFromGroup(slot, groups[gi].first, groups[gi].second, favs) }
             }
-            .show()
+            .showWrapped()
     }
 
     private fun pickFromGroup(slot: Int, groupId: String, groupName: String, favs: Set<String>) {
@@ -180,7 +180,7 @@ class MultiViewActivity : BaseActivity() {
                 tiles[slot.coerceAtMost(visibleCount() - 1)].root.requestFocus()
                 warnIfTooMany()
             }
-            .show()
+            .showWrapped()
     }
 
     private fun tileOptions(slot: Int) {
@@ -213,7 +213,7 @@ class MultiViewActivity : BaseActivity() {
                     }
                 }
             }
-            .show()
+            .showWrapped()
     }
 
     private fun warnIfTooMany() {

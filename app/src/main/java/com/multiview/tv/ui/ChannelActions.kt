@@ -40,7 +40,7 @@ object ChannelActions {
         AlertDialog.Builder(a)
             .setTitle(c.name)
             .setItems(opts.map { it.first }.toTypedArray()) { _, i -> opts[i].second() }
-            .show()
+            .showWrapped()
     }
 
     fun addToMultiView(a: BaseActivity, c: Channel) {
@@ -58,7 +58,7 @@ object ChannelActions {
             .setItems(labels.toTypedArray()) { _, i ->
                 if (i == names.size) newList(a, c, onChanged) else toggleIn(a, names[i], c, onChanged)
             }
-            .show()
+            .showWrapped()
     }
 
     private fun newList(a: BaseActivity, c: Channel, onChanged: () -> Unit) {
@@ -71,7 +71,7 @@ object ChannelActions {
                 if (name.isNotEmpty()) toggleIn(a, name, c, onChanged)
             }
             .setNegativeButton(android.R.string.cancel, null)
-            .show()
+            .showWrapped()
     }
 
     private fun toggleIn(a: BaseActivity, name: String, c: Channel, onChanged: () -> Unit) {

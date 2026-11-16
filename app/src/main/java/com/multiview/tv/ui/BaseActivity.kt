@@ -1,5 +1,6 @@
 package com.multiview.tv.ui
 
+import android.content.Intent
 import android.graphics.Typeface
 import android.os.Bundle
 import android.os.Handler
@@ -84,7 +85,7 @@ open class BaseActivity : AppCompatActivity() {
                     .setMessage(getString(R.string.update_msg, Updater.currentVersionName(this@BaseActivity), rel.name))
                     .setPositiveButton(R.string.update_now) { _, _ -> downloadUpdate(rel) }
                     .setNegativeButton(R.string.later, null)
-                    .show()
+                    .showWrapped()
             }
         }
     }
@@ -129,7 +130,7 @@ open class BaseActivity : AppCompatActivity() {
                     Toast.makeText(this, getString(R.string.sleep_set, minutes[i]), Toast.LENGTH_LONG).show()
                 }
             }
-            .show()
+            .showWrapped()
     }
 
     override fun onPostCreate(savedInstanceState: Bundle?) {
@@ -195,6 +196,46 @@ open class BaseActivity : AppCompatActivity() {
     fun lockScreen() {
         isScreenLocked = true
         showLockBadge(getString(R.string.screen_locked))
+        guardVolume(true)
+    }
+
+    private fun unlockScreen() {
+        isScreenLocked = false
+        guardVolume(false)
+        showLockBadge(getString(R.string.screen_unlocked))
+    }
+
+    // Volume keys are swallowed while locked; some TVs change the volume before the app sees the key,
+    // so the level is also put back whenever it changes during the lock.
+    private var lockedVolume = -1
+    private var volumeReceiver: android.content.BroadcastReceiver? = null
+
+    private fun guardVolume(on: Boolean) {
+        val am = getSystemService(android.media.AudioManager::class.java) ?: return
+        volumeReceiver?.let { runCatching { unregisterReceiver(it) } }
+        volumeReceiver = null
+        if (!on) { lockedVolume = -1; return }
+        lockedVolume = am.getStreamVolume(android.media.AudioManager.STREAM_MUSIC)
+        val r = object : android.content.BroadcastReceiver() {
+            override fun onReceive(c: android.content.Context?, i: Intent?) {
+                if (!isScreenLocked || lockedVolume < 0) return
+                if (am.getStreamVolume(android.media.AudioManager.STREAM_MUSIC) != lockedVolume) {
+                    am.setStreamVolume(android.media.AudioManager.STREAM_MUSIC, lockedVolume, 0)
+                }
+                if (am.isStreamMute(android.media.AudioManager.STREAM_MUSIC)) {
+                    am.adjustStreamVolume(android.media.AudioManager.STREAM_MUSIC, android.media.AudioManager.ADJUST_UNMUTE, 0)
+                }
+            }
+        }
+        val filter = android.content.IntentFilter("android.media.VOLUME_CHANGED_ACTION")
+        if (android.os.Build.VERSION.SDK_INT >= 33) registerReceiver(r, filter, android.content.Context.RECEIVER_NOT_EXPORTED)
+        else @Suppress("UnspecifiedRegisterReceiverFlag") registerReceiver(r, filter)
+        volumeReceiver = r
+    }
+
+    override fun onDestroy() {
+        guardVolume(false)
+        super.onDestroy()
     }
 
     private fun showLockBadge(text: String) {
@@ -222,9 +263,9 @@ open class BaseActivity : AppCompatActivity() {
     override fun dispatchKeyEvent(event: KeyEvent): Boolean {
         if (!isScreenLocked) return super.dispatchKeyEvent(event)
         val ok = event.keyCode == KeyEvent.KEYCODE_DPAD_CENTER || event.keyCode == KeyEvent.KEYCODE_ENTER
-        if (ok && event.action == KeyEvent.ACTION_DOWN && (event.isLongPress || event.repeatCount >= 15)) {
-            isScreenLocked = false
-            showLockBadge(getString(R.string.screen_unlocked))
+        // hold OK for 3 seconds to unlock
+        if (ok && event.action == KeyEvent.ACTION_DOWN && event.repeatCount > 0 && event.eventTime - event.downTime >= 3_000) {
+            unlockScreen()
             return true
         }
         if (event.action == KeyEvent.ACTION_DOWN && event.repeatCount == 0) showLockBadge(getString(R.string.screen_locked))
@@ -260,6 +301,6 @@ open class BaseActivity : AppCompatActivity() {
                 else Toast.makeText(this, R.string.wrong_pin, Toast.LENGTH_SHORT).show()
             }
             .setNegativeButton(android.R.string.cancel, null)
-            .show()
+            .showWrapped()
     }
 }

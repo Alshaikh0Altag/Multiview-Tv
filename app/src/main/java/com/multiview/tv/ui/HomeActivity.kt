@@ -279,7 +279,7 @@ class HomeActivity : BaseActivity() {
                 if (i < 3) Settings.setMatchesMode(this, modes[i]) else Settings.setMatchesSort(this, sorts[i - 3])
                 buildRows()
             }
-            .show()
+            .showWrapped()
     }
 
     private fun showLastCrash() {
@@ -297,7 +297,7 @@ class HomeActivity : BaseActivity() {
             .setTitle(R.string.crash_title)
             .setView(android.widget.ScrollView(this).apply { addView(tv) })
             .setPositiveButton(android.R.string.ok, null)
-            .show()
+            .showWrapped()
     }
 
     private fun openMatch(m: Match) {
