@@ -84,9 +84,6 @@ class HomeActivity : BaseActivity() {
         findViewById<TextView>(R.id.homeDate).text =
             SimpleDateFormat("EEEE d MMMM", Locale("ar")).format(Date())
 
-        Repository.maxConnections()?.let { max ->
-            if (max < 2) Toast.makeText(this, getString(R.string.conn_warning, max), Toast.LENGTH_LONG).show()
-        }
         maybeAutoplay()
         checkForUpdates(manual = false)
         showLastCrash()

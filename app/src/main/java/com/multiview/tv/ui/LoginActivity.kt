@@ -20,6 +20,8 @@ class LoginActivity : BaseActivity() {
     companion object {
         /** Opened from Settings to add another playlist: don't auto-connect the saved one. */
         const val EXTRA_ADD = "add"
+        /** Reload from the server even if a saved channel list exists (Settings → refresh / switch playlist). */
+        const val EXTRA_FORCE = "force"
     }
 
     private var mode = "xtream"
@@ -39,8 +41,39 @@ class LoginActivity : BaseActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        setContentView(R.layout.activity_login)
+        val saved = if (intent.getBooleanExtra(EXTRA_ADD, false)) null else Prefs.load(this)
+        if (saved == null) { showForm(null); return }
 
+        val fmt = Settings.liveFormat(this)
+        // Instant start: open Home with the saved channel list, refresh it quietly
+        if (!intent.getBooleanExtra(EXTRA_FORCE, false) && Repository.restore(this, saved, fmt)) {
+            Repository.refreshInBackground(this, saved, fmt)
+            goHome()
+            return
+        }
+        // First start (or refresh): a loading screen, not the form
+        setContentView(R.layout.activity_splash)
+        lifecycleScope.launch {
+            try {
+                Repository.load(saved, fmt)
+                Repository.persist(applicationContext, fmt)
+                goHome()
+            } catch (e: Exception) {
+                showForm(saved)
+                showError("تعذر الاتصال: ${e.message ?: e.javaClass.simpleName}")
+            }
+        }
+    }
+
+    private fun goHome() {
+        startActivity(Intent(this, HomeActivity::class.java)
+            .addFlags(Intent.FLAG_ACTIVITY_CLEAR_TASK or Intent.FLAG_ACTIVITY_NEW_TASK))
+        overridePendingTransition(0, 0)
+        finish()
+    }
+
+    private fun showForm(prefill: Playlist?) {
+        setContentView(R.layout.activity_login)
         tabXtream = findViewById(R.id.tabXtream)
         tabM3u = findViewById(R.id.tabM3u)
         xtreamForm = findViewById(R.id.xtreamForm)
@@ -57,15 +90,8 @@ class LoginActivity : BaseActivity() {
         tabXtream.setOnClickListener { setMode("xtream") }
         tabM3u.setOnClickListener { setMode("m3u") }
         login.setOnClickListener { submit() }
-
-        val saved = if (intent.getBooleanExtra(EXTRA_ADD, false)) null else Prefs.load(this)
-        if (saved != null) {
-            // Saved playlist → load straight away
-            fill(saved)
-            connect(saved)
-        } else {
-            server.requestFocus()
-        }
+        if (prefill != null) fill(prefill)
+        server.requestFocus()
     }
 
     private fun setMode(m: String) {
@@ -107,11 +133,11 @@ class LoginActivity : BaseActivity() {
         login.isEnabled = false
         lifecycleScope.launch {
             try {
-                Repository.load(p, Settings.liveFormat(this@LoginActivity))
+                val fmt = Settings.liveFormat(this@LoginActivity)
+                Repository.load(p, fmt)
                 Prefs.save(this@LoginActivity, p)
-                startActivity(Intent(this@LoginActivity, HomeActivity::class.java)
-                    .addFlags(Intent.FLAG_ACTIVITY_CLEAR_TASK or Intent.FLAG_ACTIVITY_NEW_TASK))
-                finish()
+                Repository.persist(applicationContext, fmt)
+                goHome()
             } catch (e: Exception) {
                 showError("تعذر الاتصال: ${e.message ?: e.javaClass.simpleName}")
             } finally {

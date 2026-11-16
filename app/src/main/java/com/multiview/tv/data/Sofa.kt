@@ -261,22 +261,56 @@ object Sofa {
         MatchDetails(match, venue, events, stats, tv.await(), referee, rows, title)
     }
 
-    /** Channel names that carry the event in [TV_COUNTRY]. */
+    /** Short report of the last broadcaster lookup, shown on the match page when nothing is found. */
+    @Volatile var lastTvDiag: String = ""
+
+    /** Countries that share the same Arabic broadcasters (beIN MENA, etc.), in order of preference. */
+    private val mena = listOf("SA", "AE", "QA", "KW", "BH", "OM", "JO", "EG", "IQ", "LB", "MA", "DZ", "TN")
+
+    /** Channel names that carry the event in Saudi Arabia (or the nearest Arab country that has data). */
     private suspend fun tvChannels(eventId: String): List<String> {
-        val cc = JSONObject(SofaHttp.get("/api/v1/tv/event/$eventId/country-channels"))
-            .optJSONObject("countryChannels") ?: return emptyList()
-        val ids = cc.optJSONArray(TV_COUNTRY) ?: return emptyList()
-        val wanted = (0 until ids.length()).map { ids.get(it).toString() }.toSet()
-        if (wanted.isEmpty()) return emptyList()
+        val body = try {
+            SofaHttp.get("/api/v1/tv/event/$eventId/country-channels")
+        } catch (e: SofaHttp.HttpError) {
+            lastTvDiag = "tv: HTTP ${e.code}"; return emptyList()
+        }
+        val cc = JSONObject(body).optJSONObject("countryChannels")
+        if (cc == null || cc.length() == 0) { lastTvDiag = "tv: no countries"; return emptyList() }
+        val country = mena.firstOrNull { (cc.optJSONArray(it)?.length() ?: 0) > 0 }
+        if (country == null) {
+            lastTvDiag = "tv: ${cc.length()} countries, none Arab (" + cc.keys().asSequence().take(8).joinToString(",") + ")"
+            return emptyList()
+        }
+        val arr = cc.getJSONArray(country)
         val names = LinkedHashMap<String, String>()
-        // channel names: look them up the ways the website does, keep whatever answers
-        for (path in listOf("/api/v1/tv/country/$TV_COUNTRY/channels", "/api/v1/tv/channels/$TV_COUNTRY")) {
-            runCatching { collectNames(JSONTokenerAny(SofaHttp.get(path)), wanted, names) }
+        val wanted = LinkedHashSet<String>()
+        for (i in 0 until arr.length()) {
+            when (val v = arr.get(i)) {
+                is JSONObject -> {          // some versions send the channel itself
+                    val id = v.opt("id")?.toString() ?: continue
+                    wanted += id
+                    v.optString("name").takeIf { it.isNotBlank() }?.let { names[id] = it }
+                }
+                else -> wanted += v.toString()
+            }
+        }
+        // names for plain ids: try the lookups the website uses, keep whatever answers
+        val tried = ArrayList<String>()
+        for (path in listOf(
+            "/api/v1/tv/country/$country/channels",
+            "/api/v1/tv/channels/$country",
+        )) {
             if (names.size >= wanted.size) break
+            tried += path.substringAfter("/tv/") + ":" + runCatching { collectNames(JSONTokenerAny(SofaHttp.get(path)), wanted, names); "ok" }
+                .getOrElse { (it as? SofaHttp.HttpError)?.code?.toString() ?: "err" }
         }
         for (id in wanted - names.keys) {
-            runCatching { collectNames(JSONTokenerAny(SofaHttp.get("/api/v1/tv/channel/$id/schedule")), wanted, names) }
+            for (path in listOf("/api/v1/tv/channel/$id/event/$eventId/votes", "/api/v1/tv/channel/$id/schedule", "/api/v1/tv/channel/$id")) {
+                if (id in names) break
+                runCatching { collectNames(JSONTokenerAny(SofaHttp.get(path)), setOf(id), names) }
+            }
         }
+        lastTvDiag = "tv $country: ${wanted.size} ids, ${names.size} names · " + tried.joinToString(" ")
         return wanted.mapNotNull { names[it] }
     }
 

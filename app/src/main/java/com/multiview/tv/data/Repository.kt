@@ -1,6 +1,7 @@
 package com.multiview.tv.data
 
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
 /** In-memory store shared by all screens. */
@@ -141,4 +142,69 @@ object Repository {
     }
 
     fun maxConnections(): Int? = account?.maxConnections
+
+    // ---------- instant start: last channel list kept on the device ----------
+
+    private const val CACHE = "channels_cache.json"
+    private fun cacheKey(p: Playlist, liveExt: String) = listOf(p.type, p.server, p.username, p.m3uUrl, liveExt).joinToString("|")
+
+    /** Saves the loaded channel list so the next start can open Home immediately. */
+    fun persist(c: android.content.Context, liveExt: String) {
+        val p = playlist ?: return
+        runCatching {
+            val o = org.json.JSONObject().put("key", cacheKey(p, liveExt))
+            o.put("cats", org.json.JSONArray().apply { categories.forEach { put(org.json.JSONObject().put("i", it.id).put("n", it.name)) } })
+            o.put("ch", org.json.JSONArray().apply {
+                channels.forEach {
+                    put(org.json.JSONObject().put("i", it.id).put("n", it.number).put("t", it.name)
+                        .put("l", it.logo ?: "").put("c", it.categoryId).put("u", it.url))
+                }
+            })
+            account?.let { a ->
+                o.put("acc", org.json.JSONObject().put("active", a.active).put("max", a.maxConnections)
+                    .put("exp", a.expiresAt ?: 0).put("cons", a.activeConnections).put("created", a.createdAt ?: 0)
+                    .put("status", a.status).put("user", a.username))
+            }
+            java.io.File(c.filesDir, CACHE).writeText(o.toString())
+        }
+    }
+
+    /** Loads the saved list (no network). @return false when there is none for this playlist. */
+    fun restore(c: android.content.Context, p: Playlist, liveExt: String): Boolean {
+        val f = java.io.File(c.filesDir, CACHE)
+        if (!f.exists()) return false
+        return runCatching { restoreFrom(f, p, liveExt) }.getOrDefault(false)
+    }
+
+    private fun restoreFrom(f: java.io.File, p: Playlist, liveExt: String): Boolean {
+        val o = org.json.JSONObject(f.readText())
+        if (o.optString("key") != cacheKey(p, liveExt)) return false
+        val cats = o.getJSONArray("cats")
+        val ch = o.getJSONArray("ch")
+        categories = (0 until cats.length()).map { val x = cats.getJSONObject(it); Category(x.getString("i"), x.getString("n")) }
+        channels = (0 until ch.length()).map {
+            val x = ch.getJSONObject(it)
+            Channel(x.getString("i"), x.optInt("n"), x.getString("t"), x.optString("l").ifBlank { null }, x.getString("c"), x.getString("u"))
+        }
+        account = o.optJSONObject("acc")?.let { a ->
+            AccountInfo(a.optBoolean("active"), a.optInt("max", 1), a.optLong("exp").takeIf { it > 0 },
+                a.optInt("cons"), a.optLong("created").takeIf { it > 0 }, a.optString("status"), a.optString("user"))
+        }
+        playlist = p
+        xtream = if (p.type == "xtream") XtreamApi(p.server, p.username, p.password, liveExt) else null
+        vodCategories = emptyList(); seriesCategories = emptyList()
+        moviesByCat.clear(); seriesByCat.clear(); seriesById.clear()
+        cachedMovies = null; cachedSeries = null; movieInfoCache.clear(); seriesCache.clear()
+        return channels.isNotEmpty()
+    }
+
+    private val background = kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.SupervisorJob() + Dispatchers.IO)
+
+    /** After an instant start: fetch the fresh list quietly and save it for next time. */
+    fun refreshInBackground(c: android.content.Context, p: Playlist, liveExt: String) {
+        val app = c.applicationContext
+        background.launch {
+            runCatching { load(p, liveExt); persist(app, liveExt) }
+        }
+    }
 }

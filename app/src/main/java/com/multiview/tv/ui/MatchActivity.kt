@@ -200,6 +200,11 @@ class MatchActivity : BaseActivity() {
     private fun showBroadcasters(list: List<String>) {
         findViewById<TextView>(R.id.mdBroadcast).text =
             if (list.isEmpty()) getString(R.string.md_no_broadcaster) else getString(R.string.md_broadcasters, list.joinToString("، "))
+        // small technical line (source + broadcaster lookup) to diagnose a missing broadcaster from a photo
+        findViewById<TextView>(R.id.mdDiag).text = if (list.isEmpty())
+            "src: " + (if (match.source == "sofa") "Sofascore" else "ESPN (${Matches.lastSource})") +
+                (if (match.source == "sofa") " · " + com.multiview.tv.data.Sofa.lastTvDiag else "")
+        else ""
     }
 
     private fun addTableRow(parent: LinearLayout, pos: String, team: String, played: String, gd: String, pts: String, header: Boolean = false) {

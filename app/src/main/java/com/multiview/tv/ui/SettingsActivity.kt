@@ -216,6 +216,7 @@ class SettingsActivity : BaseActivity() {
         unlockedGroups.clear()
         Repository.multiView.fill(null)
         startActivity(Intent(this, LoginActivity::class.java)
+            .putExtra(LoginActivity.EXTRA_FORCE, true)
             .addFlags(Intent.FLAG_ACTIVITY_CLEAR_TASK or Intent.FLAG_ACTIVITY_NEW_TASK))
         finish()
     }
