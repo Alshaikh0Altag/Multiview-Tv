@@ -185,9 +185,6 @@ object Settings {
     fun matchesSort(c: Context) = sp(c).getString("matches_sort", "importance")!!
     fun setMatchesSort(c: Context, v: String) = sp(c).edit().putString("matches_sort", v).apply()
 
-    /** Movies & series order: "recent" (default) / "rating" / "name" */
-    fun vodSort(c: Context) = sp(c).getString("vod_sort", "recent")!!
-    fun setVodSort(c: Context, v: String) = sp(c).edit().putString("vod_sort", v).apply()
 
     fun tennisEnabled(c: Context) = sp(c).getBoolean("tennis", true)
     fun setTennisEnabled(c: Context, v: Boolean) = sp(c).edit().putBoolean("tennis", v).apply()
