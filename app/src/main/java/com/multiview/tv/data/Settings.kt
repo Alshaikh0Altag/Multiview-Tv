@@ -168,6 +168,9 @@ object Settings {
     fun matchesSort(c: Context) = sp(c).getString("matches_sort", "importance")!!
     fun setMatchesSort(c: Context, v: String) = sp(c).edit().putString("matches_sort", v).apply()
 
+    fun tennisEnabled(c: Context) = sp(c).getBoolean("tennis", true)
+    fun setTennisEnabled(c: Context, v: Boolean) = sp(c).edit().putBoolean("tennis", v).apply()
+
     // ---------- Movies & series playback ----------
     /** Seconds moved by ◀ ▶ when the controls are hidden */
     fun seekStep(c: Context) = sp(c).getInt("seek_step", 10)

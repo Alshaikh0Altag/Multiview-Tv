@@ -23,6 +23,7 @@ import com.multiview.tv.data.MatchDetails
 import com.multiview.tv.data.Matches
 import com.multiview.tv.data.Repository
 import com.multiview.tv.data.Settings
+import com.multiview.tv.data.SofaHttp
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -41,8 +42,28 @@ class MatchActivity : BaseActivity() {
     private lateinit var match: Match
     private val handler = Handler(Looper.getMainLooper())
     private val refresh = object : Runnable {
-        override fun run() { load(); if (match.isLive) handler.postDelayed(this, 60_000) }
+        override fun run() {
+            load()
+            val left = match.start - System.currentTimeMillis()
+            when {
+                match.isLive -> handler.postDelayed(this, 60_000)
+                !match.isFinished && left in 0..3600_000L -> handler.postDelayed(this, left + 30_000)  // reload at kick-off
+            }
+        }
     }
+    /** Countdown "00:42:10" during the last hour before kick-off. */
+    private val tick = object : Runnable {
+        override fun run() {
+            val left = match.start - System.currentTimeMillis()
+            if (!match.isLive && !match.isFinished && left in 1..3600_000L) {
+                val s = left / 1000
+                findViewById<TextView>(R.id.mdScore).text = "%02d:%02d:%02d".format(s / 3600, (s % 3600) / 60, s % 60)
+                findViewById<TextView>(R.id.mdStatus).setText(R.string.md_starts_in)
+                handler.postDelayed(this, 1_000)
+            }
+        }
+    }
+    private var lastBroadcasters: List<String>? = null
     private val channelAdapter = ChannelCards()
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -53,44 +74,52 @@ class MatchActivity : BaseActivity() {
         val list = findViewById<RecyclerView>(R.id.mdChannels)
         list.layoutManager = LinearLayoutManager(this, LinearLayoutManager.HORIZONTAL, false)
         list.adapter = channelAdapter
-        // finding the channels scans the whole list — do it off the main thread
-        val excluded = excludedCategories("l:")
-        lifecycleScope.launch {
-            val found = withContext(Dispatchers.Default) {
-                runCatching {
-                    val all = Repository.channelsIn(Repository.ALL_ID, emptySet(), excluded)
-                    Matches.candidateChannels(match, all, Repository.categories)
-                }.getOrDefault(emptyList())
-            }
-            channelAdapter.items = found
-            updateChannelsSection()
-            list.post { list.getChildAt(0)?.requestFocus() }
-        }
-
+        updateChannelsSection()
         showHeader(match)
         showBroadcasters(match.broadcasts)
     }
 
     override fun onResume() {
         super.onResume()
-        if (::match.isInitialized) handler.post(refresh)
+        if (::match.isInitialized) { handler.post(refresh); handler.post(tick) }
     }
 
     override fun onPause() {
         super.onPause()
         handler.removeCallbacks(refresh)
+        handler.removeCallbacks(tick)
     }
 
     private fun load() {
         lifecycleScope.launch {
-            val d = runCatching { Matches.details(match) }.getOrNull() ?: run {
+            val d = runCatching { Matches.detailsAny(match) }.getOrNull() ?: run {
                 if (findViewById<LinearLayout>(R.id.mdEvents).childCount == 0) addLine(R.id.mdEvents, getString(R.string.md_no_details))
                 return@launch
             }
             match = d.match
             showHeader(d.match)
             showDetails(d)
+            if (d.broadcasters != lastBroadcasters) {
+                lastBroadcasters = d.broadcasters
+                findChannels(d.broadcasters)
+            }
             updateChannelsSection()
+        }
+    }
+
+    /** Only the subscription channels that are the official broadcaster — not every sports channel. */
+    private fun findChannels(broadcasters: List<String>) {
+        val excluded = excludedCategories("l:")
+        lifecycleScope.launch {
+            val found = withContext(Dispatchers.Default) {
+                runCatching {
+                    Matches.broadcasterChannels(broadcasters, Repository.channelsIn(Repository.ALL_ID, emptySet(), excluded))
+                }.getOrDefault(emptyList())
+            }
+            channelAdapter.items = found
+            updateChannelsSection()
+            val list = findViewById<RecyclerView>(R.id.mdChannels)
+            if (found.isNotEmpty()) list.post { list.getChildAt(0)?.requestFocus() }
         }
     }
 
@@ -105,19 +134,24 @@ class MatchActivity : BaseActivity() {
         findViewById<TextView>(R.id.mdLeague).text = m.league
         findViewById<TextView>(R.id.mdHome).text = m.home.name
         findViewById<TextView>(R.id.mdAway).text = m.away.name
-        findViewById<ImageView>(R.id.mdHomeLogo).load(m.home.logo)
-        findViewById<ImageView>(R.id.mdAwayLogo).load(m.away.logo)
+        findViewById<ImageView>(R.id.mdHomeLogo).load(m.home.logo) { addHeader("User-Agent", SofaHttp.UA) }
+        findViewById<ImageView>(R.id.mdAwayLogo).load(m.away.logo) { addHeader("User-Agent", SofaHttp.UA) }
         val time = SimpleDateFormat(if (Settings.clock24h(this)) "HH:mm" else "h:mm a", Locale.US).format(Date(m.start))
         // score shown as home – away, read in the same order as the team names around it
-        findViewById<TextView>(R.id.mdScore).text =
-            if (m.isLive || m.isFinished) "${m.home.score ?: 0} - ${m.away.score ?: 0}" else time
+        findViewById<TextView>(R.id.mdScore).text = when {
+            m.sets.isNotEmpty() -> m.sets.joinToString("   ") { "${it.first}-${it.second}" }   // tennis sets
+            m.isLive || m.isFinished -> "${m.home.score ?: 0} - ${m.away.score ?: 0}"
+            else -> time
+        }
         val st = findViewById<TextView>(R.id.mdStatus)
         st.text = when {
             m.isLive -> "● " + m.statusText
-            m.isFinished -> getString(R.string.match_finished)
+            m.isFinished -> m.statusText.takeIf { it == "أُلغيت" || it == "أُجّلت" } ?: getString(R.string.match_finished)
             else -> getString(R.string.md_kickoff)
         }
         st.setBackgroundResource(if (m.isLive) R.drawable.bg_badge_live else 0)
+        handler.removeCallbacks(tick)
+        handler.post(tick)
     }
 
     private fun showDetails(d: MatchDetails) {
@@ -125,13 +159,34 @@ class MatchActivity : BaseActivity() {
 
         val events = findViewById<LinearLayout>(R.id.mdEvents)
         events.removeAllViews()
-        if (d.events.isEmpty()) {
+        if (d.match.sport == "tennis") {
+            if (d.match.sets.isEmpty()) addLine(R.id.mdEvents, getString(R.string.md_not_started))
+            d.match.sets.forEachIndexed { i, (h, a) ->
+                addLine(R.id.mdEvents, getString(R.string.md_set_n, i + 1) + "   $h - $a", bold = true)
+            }
+        } else if (d.events.isEmpty()) {
             addLine(R.id.mdEvents, getString(if (d.match.state == "pre") R.string.md_not_started else R.string.md_no_events))
         } else d.events.forEach { e ->
             val icon = when (e.kind) { "yellow" -> "🟨"; "red" -> "🟥"; else -> "⚽" }
             val extra = when (e.kind) { "own_goal" -> " (${getString(R.string.md_own_goal)})"; "penalty" -> " (${getString(R.string.md_penalty)})"; else -> "" }
             val team = if (e.home) d.match.home.shortName else d.match.away.shortName
             addLine(R.id.mdEvents, "${e.minute}  $icon  ${e.player}$extra  ·  $team", bold = e.kind != "yellow" && e.kind != "red")
+        }
+
+        // referee and the two teams' places in the table
+        findViewById<TextView>(R.id.mdReferee).apply {
+            text = d.referee?.let { getString(R.string.md_referee, it) } ?: ""
+            visibility = if (d.referee != null) View.VISIBLE else View.GONE
+        }
+        val table = findViewById<LinearLayout>(R.id.mdTable)
+        table.removeAllViews()
+        findViewById<TextView>(R.id.mdTableTitle).apply {
+            text = getString(R.string.md_table) + (d.standingsTitle?.let { " — $it" } ?: "")
+            visibility = if (d.standings.isNotEmpty()) View.VISIBLE else View.GONE
+        }
+        if (d.standings.isNotEmpty()) {
+            addTableRow(table, "#", getString(R.string.md_team), getString(R.string.md_played), "+/-", getString(R.string.md_points), header = true)
+            d.standings.forEach { r -> addTableRow(table, r.position.toString(), r.team, r.played.toString(), r.goalDiff, r.points.toString()) }
         }
 
         val stats = findViewById<LinearLayout>(R.id.mdStats)
@@ -144,7 +199,23 @@ class MatchActivity : BaseActivity() {
 
     private fun showBroadcasters(list: List<String>) {
         findViewById<TextView>(R.id.mdBroadcast).text =
-            if (list.isEmpty()) "" else getString(R.string.md_broadcasters, list.joinToString("، "))
+            if (list.isEmpty()) getString(R.string.md_no_broadcaster) else getString(R.string.md_broadcasters, list.joinToString("، "))
+    }
+
+    private fun addTableRow(parent: LinearLayout, pos: String, team: String, played: String, gd: String, pts: String, header: Boolean = false) {
+        val row = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; setPadding(0, dp(4), 0, dp(4)) }
+        val color = if (header) R.color.muted else R.color.text
+        val size = if (header) 13f else 16f
+        fun cell(t: String, w: Float, g: Int) = TextView(this).apply {
+            text = t; gravity = g; setTextColor(getColor(color)); setTextSize(TypedValue.COMPLEX_UNIT_SP, size); maxLines = 1
+            layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, w)
+        }
+        row.addView(cell(pos, 0.6f, Gravity.CENTER))
+        row.addView(cell(team, 3f, Gravity.START))
+        row.addView(cell(played, 1f, Gravity.CENTER))
+        row.addView(cell(gd, 1f, Gravity.CENTER))
+        row.addView(cell(pts, 1f, Gravity.CENTER))
+        parent.addView(row)
     }
 
     private fun addLine(containerId: Int, text: String, bold: Boolean = false) {

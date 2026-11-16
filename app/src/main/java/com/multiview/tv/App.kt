@@ -12,6 +12,7 @@ class App : Application() {
 
     override fun onCreate() {
         super.onCreate()
+        instance = this
         val previous = Thread.getDefaultUncaughtExceptionHandler()
         Thread.setDefaultUncaughtExceptionHandler { t, e ->
             runCatching {
@@ -27,6 +28,10 @@ class App : Application() {
     }
 
     companion object {
+        /** Application context for helpers that have no screen of their own. */
+        lateinit var instance: App
+            private set
+
         private const val FILE = "crash"
         private const val KEY = "last"
 

@@ -11,7 +11,13 @@ import java.util.Date
 import java.util.Locale
 import java.util.TimeZone
 
-data class Team(val name: String, val shortName: String, val logo: String?, val score: String?)
+data class Team(
+    val name: String,
+    val shortName: String,
+    val logo: String?,
+    val score: String?,
+    val id: String? = null,
+)
 
 data class Match(
     val id: String,
@@ -24,6 +30,14 @@ data class Match(
     val home: Team,
     val away: Team,
     val broadcasts: List<String>,
+    /** "football" or "tennis" */
+    val sport: String = "football",
+    /** "espn" or "sofa" (Sofascore) */
+    val source: String = "espn",
+    val tournamentId: Int = 0,
+    val seasonId: Int = 0,
+    /** tennis: games per set, home to away, e.g. [6 to 4, 3 to 2] */
+    val sets: List<Pair<String, String>> = emptyList(),
 ) {
     val isLive get() = state == "in"
     val isFinished get() = state == "post"
@@ -39,12 +53,25 @@ data class MatchEvent(
 
 data class MatchStat(val label: String, val home: String, val away: String)
 
+data class StandingRow(
+    val position: Int,
+    val team: String,
+    val teamId: String?,
+    val played: Int,
+    val goalDiff: String,
+    val points: Int,
+)
+
 data class MatchDetails(
     val match: Match,
     val venue: String?,
     val events: List<MatchEvent>,
     val stats: List<MatchStat>,
     val broadcasters: List<String>,
+    val referee: String? = null,
+    /** the two teams' rows in their league / group table */
+    val standings: List<StandingRow> = emptyList(),
+    val standingsTitle: String? = null,
 )
 
 /**
@@ -55,6 +82,26 @@ object Matches {
     private const val BASE = "https://site.api.espn.com/apis/site/v2/sports/soccer"
     private var cache: Pair<Long, List<Match>>? = null
     private var cacheKey = ""
+
+    /** Last source that answered, shown in the app ("Sofascore" or "ESPN"). */
+    @Volatile var lastSource = ""
+
+    /**
+     * Sofascore first (Arabic names, Saudi TV channels, tennis); ESPN if Sofascore can't be reached.
+     */
+    suspend fun todayAll(leagues: Set<String>, tennis: Boolean, force: Boolean = false): List<Match> {
+        val key = "sofa|" + leagues.sorted().joinToString(",") + "|$tennis"
+        val c = cache
+        if (!force && c != null && key == cacheKey && System.currentTimeMillis() - c.first < 60_000) return c.second
+        val sofa = runCatching { Sofa.today(leagues, tennis) }.getOrNull()
+        val list = if (sofa != null) { lastSource = "Sofascore"; sofa } else { lastSource = "ESPN"; today(leagues, force = true) }
+        cache = System.currentTimeMillis() to list
+        cacheKey = key
+        return list
+    }
+
+    /** Match centre from the source the match came from. */
+    suspend fun detailsAny(m: Match): MatchDetails = if (m.source == "sofa") Sofa.details(m) else details(m)
 
     suspend fun today(leagues: Collection<String>, force: Boolean = false): List<Match> = withContext(Dispatchers.IO) {
         val key = leagues.sorted().joinToString(",")
@@ -234,6 +281,29 @@ object Matches {
      * Channels that may carry the match: channel names that mention a team or a broadcaster,
      * then the sports channels of the subscription. Linear in the number of channels.
      */
+    /**
+     * Subscription channels whose name is one of the official broadcasters
+     * ("beIN SPORTS HD 1" ↔ "AR: beIN Sports 1 FHD"). Quality / country tags are ignored,
+     * and "beIN 1" never matches "beIN 10".
+     */
+    fun broadcasterChannels(broadcasters: List<String>, channels: List<Channel>): List<Channel> {
+        if (broadcasters.isEmpty()) return emptyList()
+        val noise = Regex("\\b(hd|fhd|uhd|sd|4k|8k|hevc|h265|ar|ksa|sa|mena|me|arabic|tv|channel|live|backup|raw)\\b")
+        fun norm(s: String) = s.lowercase(Locale.ROOT)
+            .replace(Regex("^[a-z]{2,4}\\s*[:|\\-]\\s*"), "")     // "AR: ", "KSA | "
+            .replace(noise, " ")
+            .filter { it.isLetterOrDigit() }
+        val wanted = broadcasters.map(::norm).filter { it.length >= 3 }.distinct()
+        if (wanted.isEmpty()) return emptyList()
+        return channels.filter { ch ->
+            val n = norm(ch.name)
+            wanted.any { w ->
+                val i = n.indexOf(w)
+                i >= 0 && (i + w.length >= n.length || !(w.last().isDigit() && n[i + w.length].isDigit()))
+            }
+        }.distinctBy { it.id }.take(30)
+    }
+
     fun candidateChannels(m: Match, channels: List<Channel>, categories: List<Category>): List<Channel> {
         val clean = Regex("[^\\p{L}\\p{N}]")
         fun norm(s: String) = s.lowercase(Locale.ROOT).replace(clean, "")
@@ -271,10 +341,23 @@ object Matches {
         "al ahli", "al-ahli", "manchester city", "liverpool", "arsenal", "manchester united", "chelsea",
         "bayern", "paris saint-germain", "psg", "juventus", "inter", "ac milan", "atletico", "al ahly", "zamalek",
         "saudi arabia", "argentina", "brazil", "france", "spain", "england", "portugal", "germany", "morocco", "egypt",
+        // Arabic names (Sofascore)
+        "الهلال", "النصر", "الاتحاد", "الأهلي", "ريال مدريد", "برشلونة", "مانشستر سيتي", "ليفربول", "آرسنال",
+        "مانشستر يونايتد", "تشيلسي", "بايرن", "باريس", "يوفنتوس", "إنتر", "ميلان", "أتلتيكو", "الزمالك",
+        "السعودية", "الأرجنتين", "البرازيل", "فرنسا", "إسبانيا", "إنجلترا", "البرتغال", "ألمانيا", "المغرب", "مصر",
     )
 
     fun importance(m: Match): Int {
         var w = leagueWeight[m.leagueCode] ?: if (m.leagueCode.startsWith("fifa.worldq")) 58 else 40
+        if (m.sport == "tennis") {
+            val l = m.league.lowercase(Locale.ROOT)
+            w = when {
+                listOf("australian open", "roland garros", "french open", "wimbledon", "us open").any { it in l } -> 95
+                "finals" in l -> 85
+                "masters" in l || "1000" in l -> 75
+                else -> 50
+            }
+        }
         val names = (m.home.name + " " + m.away.name).lowercase(Locale.ROOT)
         bigTeams.forEach { if (names.contains(it)) w += 15 }
         if (m.isLive) w += 50

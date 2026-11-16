@@ -249,7 +249,7 @@
     <string name="md_own_goal">في مرماه</string>
     <string name="md_penalty">ركلة جزاء</string>
     <string name="md_no_stats">تظهر الإحصائيات بعد بداية المباراة</string>
-    <string name="md_broadcasters">الناقل حسب ESPN: %1$s</string>
+    <string name="md_broadcasters">القنوات الناقلة: %1$s</string>
     <string name="filter_all">كل المباريات</string>
     <string name="filter_live">المباشرة الآن فقط</string>
     <string name="filter_upcoming">التي لم تنتهِ</string>
@@ -259,4 +259,15 @@
     <string name="crash_title">حدث خطأ في المرة السابقة — صوّر هذه الرسالة وأرسلها</string>
     <string name="resume_play">متابعة التشغيل</string>
     <string name="remove_continue">حذف من متابعة المشاهدة</string>
+    <string name="today_tennis">تنس اليوم</string>
+    <string name="starts_in_min">بعد %1$d د</string>
+    <string name="set_tennis">مباريات التنس (ATP و WTA): %1$s</string>
+    <string name="md_starts_in">تبدأ بعد</string>
+    <string name="md_referee">الحكم: %1$s</string>
+    <string name="md_table">الترتيب</string>
+    <string name="md_team">الفريق</string>
+    <string name="md_played">لعب</string>
+    <string name="md_points">نقاط</string>
+    <string name="md_no_broadcaster">لم يُعلن الناقل بعد</string>
+    <string name="md_set_n">المجموعة %1$d</string>
 </resources>

@@ -28,6 +28,7 @@ import com.multiview.tv.data.Prefs
 import com.multiview.tv.data.Repository
 import com.multiview.tv.data.Series
 import com.multiview.tv.data.Settings
+import com.multiview.tv.data.SofaHttp
 import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
 import java.util.Calendar
@@ -63,7 +64,7 @@ class HomeActivity : BaseActivity() {
     private var signature = ""
     private val handler = Handler(Looper.getMainLooper())
     private val refreshMatches = object : Runnable {
-        override fun run() { loadMatches(force = true); handler.postDelayed(this, 120_000) }
+        override fun run() { loadMatches(force = true); handler.postDelayed(this, 60_000) }
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -121,7 +122,9 @@ class HomeActivity : BaseActivity() {
 
     private fun loadMatches(force: Boolean) {
         lifecycleScope.launch {
-            matches = runCatching { Matches.today(Settings.leagues(this@HomeActivity), force) }.getOrDefault(emptyList())
+            matches = runCatching {
+                Matches.todayAll(Settings.leagues(this@HomeActivity), Settings.tennisEnabled(this@HomeActivity), force)
+            }.getOrDefault(emptyList())
             buildRows()
         }
     }
@@ -158,7 +161,7 @@ class HomeActivity : BaseActivity() {
         for (r in Settings.homeRows(this)) when (r) {
             "matches" -> {
                 val mode = Settings.matchesMode(this)
-                val m = matches?.let { Matches.arrange(it, mode, Settings.matchesSort(this)) }
+                val m = matches?.let { all -> Matches.arrange(all.filter { it.sport == "football" }, mode, Settings.matchesSort(this)) }
                 val cards: List<Card> = when {
                     m == null -> listOf(Card.Message(getString(R.string.loading_matches)))
                     m.isEmpty() -> listOf(Card.Message(getString(
@@ -167,6 +170,11 @@ class HomeActivity : BaseActivity() {
                 }
                 val suffix = when (mode) { "live" -> " · " + getString(R.string.filter_live); "upcoming" -> " · " + getString(R.string.filter_upcoming); else -> "" }
                 rows += Row("matches", getString(R.string.today_matches) + suffix, cards)
+                // tennis gets its own row, right below football
+                if (Settings.tennisEnabled(this)) {
+                    val t = matches?.let { all -> Matches.arrange(all.filter { it.sport == "tennis" }, mode, Settings.matchesSort(this)) }
+                    if (!t.isNullOrEmpty()) rows += Row("tennis", getString(R.string.today_tennis) + suffix, t.map { Card.MatchCard(it) })
+                }
             }
             "continue" -> {
                 val items = (Library.continueWatching(this, "m:") + Library.continueWatching(this, "e:"))
@@ -302,9 +310,11 @@ class HomeActivity : BaseActivity() {
 
     private fun matchStatus(m: Match): String {
         val time = SimpleDateFormat(if (Settings.clock24h(this)) "HH:mm" else "h:mm a", Locale.US).format(Date(m.start))
+        val left = m.start - System.currentTimeMillis()
         return when {
             m.isLive -> "● " + m.statusText.ifBlank { getString(R.string.live_badge) }
-            m.isFinished -> getString(R.string.match_finished)
+            m.isFinished -> m.statusText.takeIf { it == "أُلغيت" || it == "أُجّلت" } ?: getString(R.string.match_finished)
+            left in 1 until 3600_000L -> getString(R.string.starts_in_min, (left / 60_000 + 1).toInt())
             else -> time
         }
     }
@@ -428,10 +438,13 @@ class HomeActivity : BaseActivity() {
             v.findViewById<TextView>(R.id.mHome).text = m.home.name
             v.findViewById<TextView>(R.id.mAway).text = m.away.name
             val showScore = m.isLive || m.isFinished
-            v.findViewById<TextView>(R.id.mHomeScore).text = if (showScore) m.home.score ?: "" else ""
-            v.findViewById<TextView>(R.id.mAwayScore).text = if (showScore) m.away.score ?: "" else ""
-            v.findViewById<ImageView>(R.id.mHomeLogo).load(m.home.logo) { crossfade(false) }
-            v.findViewById<ImageView>(R.id.mAwayLogo).load(m.away.logo) { crossfade(false) }
+            // tennis: games of every set ("6 4 2"); football: goals
+            val hs = if (m.sets.isNotEmpty()) m.sets.joinToString("  ") { it.first } else m.home.score ?: ""
+            val aw = if (m.sets.isNotEmpty()) m.sets.joinToString("  ") { it.second } else m.away.score ?: ""
+            v.findViewById<TextView>(R.id.mHomeScore).text = if (showScore) hs else ""
+            v.findViewById<TextView>(R.id.mAwayScore).text = if (showScore) aw else ""
+            v.findViewById<ImageView>(R.id.mHomeLogo).load(m.home.logo) { crossfade(false); addHeader("User-Agent", SofaHttp.UA) }
+            v.findViewById<ImageView>(R.id.mAwayLogo).load(m.away.logo) { crossfade(false); addHeader("User-Agent", SofaHttp.UA) }
         }
     }
 }

@@ -49,6 +49,9 @@ class SettingsActivity : BaseActivity() {
         header(R.string.set_section_home)
         row({ getString(R.string.set_home_rows) }) { homeRows() }
         row({ getString(R.string.set_leagues) }) { leagues() }
+        row({ getString(R.string.set_tennis, onOff(Settings.tennisEnabled(this))) }) {
+            Settings.setTennisEnabled(this, !Settings.tennisEnabled(this))
+        }
 
         header(R.string.set_section_clock)
         row({ getString(R.string.set_clock, onOff(Settings.clockEnabled(this))) }) {
