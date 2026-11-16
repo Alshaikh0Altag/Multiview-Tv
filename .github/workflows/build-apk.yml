@@ -25,6 +25,20 @@ jobs:
 
       - uses: gradle/actions/setup-gradle@v4
 
+      # Same signing key for every build, so the app can update itself.
+      # The key lives in the repository secret SIGNING_KEYSTORE_B64 (never in the code).
+      - name: Use the app's fixed signing key
+        env:
+          KS: ${{ secrets.SIGNING_KEYSTORE_B64 }}
+        run: |
+          if [ -n "$KS" ]; then
+            mkdir -p ~/.android
+            echo "$KS" | base64 -d > ~/.android/debug.keystore
+            echo "Using the fixed signing key"
+          else
+            echo "::warning::SIGNING_KEYSTORE_B64 secret is missing — this build gets a random key and cannot update older installs"
+          fi
+
       - name: Build debug APK
         run: |
           chmod +x gradlew
