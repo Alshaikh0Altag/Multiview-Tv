@@ -220,7 +220,7 @@ class VodActivity : BaseActivity() {
 
     private fun updateSortLabel() {
         sortBtn.setText(when (Settings.vodSort(this)) {
-            "rating" -> R.string.sort_rating; "name" -> R.string.sort_name; else -> R.string.sort_new })
+            "rating" -> R.string.vsort_rating; "name" -> R.string.vsort_name; else -> R.string.vsort_new })
     }
 
     private fun ratingOf(r: String?): Double = r?.replace(',', '.')?.toDoubleOrNull() ?: -1.0

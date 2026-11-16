@@ -271,8 +271,8 @@
     <string name="md_no_broadcaster">لم يُعلن الناقل بعد</string>
     <string name="md_set_n">المجموعة %1$d</string>
     <string name="md_full_table">الترتيب الكامل</string>
-    <string name="sort_new">⇅ الأحدث إضافة</string>
-    <string name="sort_rating">⇅ الأعلى تقييماً</string>
-    <string name="sort_name">⇅ أبجدياً</string>
+    <string name="vsort_new">⇅ الأحدث إضافة</string>
+    <string name="vsort_rating">⇅ الأعلى تقييماً</string>
+    <string name="vsort_name">⇅ أبجدياً</string>
     <string name="md_live_table">مباشر</string>
 </resources>
