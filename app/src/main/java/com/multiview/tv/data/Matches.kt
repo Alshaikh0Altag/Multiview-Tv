@@ -86,22 +86,87 @@ object Matches {
     /** Last source that answered, shown in the app ("Sofascore" or "ESPN"). */
     @Volatile var lastSource = ""
 
-    /**
-     * Sofascore first (Arabic names, Saudi TV channels, tennis); ESPN if Sofascore can't be reached.
-     */
+    /** ESPN football in the chosen leagues, plus ATP/WTA tennis when [tennis]. */
     suspend fun todayAll(leagues: Set<String>, tennis: Boolean, force: Boolean = false): List<Match> {
-        val key = "sofa|" + leagues.sorted().joinToString(",") + "|$tennis"
-        val c = cache
-        if (!force && c != null && key == cacheKey && System.currentTimeMillis() - c.first < 60_000) return c.second
-        val sofa = runCatching { Sofa.today(leagues, tennis) }.getOrNull()
-        val list = if (sofa != null) { lastSource = "Sofascore"; sofa } else { lastSource = "ESPN"; today(leagues, force = true) }
-        cache = System.currentTimeMillis() to list
-        cacheKey = key
-        return list
+        val football = today(leagues, force)
+        if (!tennis) return football
+        val t = runCatching { tennisToday() }.getOrDefault(emptyList())
+        return football + t
     }
 
-    /** Match centre from the source the match came from. */
-    suspend fun detailsAny(m: Match): MatchDetails = if (m.source == "sofa") Sofa.details(m) else details(m)
+    /** Match centre (tennis: what the scoreboard already gives). */
+    suspend fun detailsAny(m: Match): MatchDetails =
+        if (m.sport == "tennis") MatchDetails(m, null, emptyList(), emptyList(), emptyList()) else details(m)
+
+    // ---------- tennis (ESPN) ----------
+
+    private suspend fun tennisToday(): List<Match> = withContext(Dispatchers.IO) {
+        val utc = SimpleDateFormat("yyyyMMdd", Locale.US).apply { timeZone = TimeZone.getTimeZone("UTC") }
+        val dayStart = java.util.Calendar.getInstance().apply {
+            set(java.util.Calendar.HOUR_OF_DAY, 0); set(java.util.Calendar.MINUTE, 0)
+            set(java.util.Calendar.SECOND, 0); set(java.util.Calendar.MILLISECOND, 0)
+        }.timeInMillis
+        val dayEnd = dayStart + 24 * 3600_000L
+        val dates = setOf(utc.format(Date(dayStart)), utc.format(Date(dayEnd - 1)))
+        coroutineScope {
+            listOf("atp", "wta").flatMap { tour -> dates.map { d -> async { runCatching { fetchTennis(tour, d) }.getOrDefault(emptyList()) } } }
+                .awaitAll().flatten()
+        }.distinctBy { it.id }.filter { it.start in dayStart until dayEnd || it.isLive }
+    }
+
+    private fun fetchTennis(tour: String, date: String): List<Match> {
+        val json = JSONObject(Http.get("https://site.api.espn.com/apis/site/v2/sports/tennis/$tour/scoreboard?dates=$date", timeoutMs = 12_000))
+        val events = json.optJSONArray("events") ?: return emptyList()
+        val iso = SimpleDateFormat("yyyy-MM-dd'T'HH:mm'Z'", Locale.US).apply { timeZone = TimeZone.getTimeZone("UTC") }
+        val iso2 = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss'Z'", Locale.US).apply { timeZone = TimeZone.getTimeZone("UTC") }
+        val out = ArrayList<Match>()
+        for (i in 0 until events.length()) {
+            val ev = events.getJSONObject(i)
+            val tournament = ev.optString("name").ifBlank { ev.optString("shortName") }
+            // matches sit in "groupings" (men's / women's singles, doubles…) or directly in "competitions"
+            val comps = ArrayList<JSONObject>()
+            ev.optJSONArray("groupings")?.let { g ->
+                for (k in 0 until g.length()) {
+                    val grp = g.getJSONObject(k)
+                    val slug = grp.optJSONObject("grouping")?.optString("slug").orEmpty()
+                    if ("doubles" in slug) continue
+                    grp.optJSONArray("competitions")?.let { c -> for (j in 0 until c.length()) comps += c.getJSONObject(j) }
+                }
+            }
+            ev.optJSONArray("competitions")?.let { c -> for (j in 0 until c.length()) comps += c.getJSONObject(j) }
+            for (c in comps) {
+                val players = c.optJSONArray("competitors") ?: continue
+                if (players.length() != 2) continue
+                fun player(o: JSONObject): Pair<Team, List<String>> {
+                    val a = o.optJSONObject("athlete") ?: o.optJSONObject("team") ?: JSONObject()
+                    val name = a.optString("displayName").ifBlank { a.optString("shortName") }
+                    val flag = a.optJSONObject("flag")?.optString("href")?.ifBlank { null }
+                    val games = ArrayList<String>()
+                    o.optJSONArray("linescores")?.let { ls -> for (s in 0 until ls.length()) games += ls.getJSONObject(s).optString("value").substringBefore('.') }
+                    return Team(name, a.optString("shortName").ifBlank { name }, flag, null) to games
+                }
+                val (p1, g1) = player(players.getJSONObject(0))
+                val (p2, g2) = player(players.getJSONObject(1))
+                if (p1.name.isBlank() || p2.name.isBlank()) continue
+                val dateStr = c.optString("date").ifBlank { c.optString("startDate") }
+                val start = runCatching { iso.parse(dateStr)!!.time }.recoverCatching { iso2.parse(dateStr)!!.time }.getOrNull() ?: continue
+                val st = c.optJSONObject("status")?.optJSONObject("type")
+                out += Match(
+                    id = "t" + c.optString("id"),
+                    league = "${tour.uppercase()} · $tournament",
+                    leagueCode = "tennis.$tour",
+                    start = start,
+                    state = st?.optString("state") ?: "pre",
+                    statusText = st?.optString("shortDetail") ?: "",
+                    home = p1, away = p2,
+                    broadcasts = emptyList(),
+                    sport = "tennis",
+                    sets = g1.indices.filter { it < g2.size }.map { g1[it] to g2[it] },
+                )
+            }
+        }
+        return out
+    }
 
     suspend fun today(leagues: Collection<String>, force: Boolean = false): List<Match> = withContext(Dispatchers.IO) {
         val key = leagues.sorted().joinToString(",")

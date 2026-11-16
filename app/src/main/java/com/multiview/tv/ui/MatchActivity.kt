@@ -99,10 +99,6 @@ class MatchActivity : BaseActivity() {
             match = d.match
             showHeader(d.match)
             showDetails(d)
-            if (d.broadcasters != lastBroadcasters) {
-                lastBroadcasters = d.broadcasters
-                findChannels(d.broadcasters)
-            }
             updateChannelsSection()
         }
     }
@@ -125,7 +121,7 @@ class MatchActivity : BaseActivity() {
 
     /** No point offering channels once the match is over. */
     private fun updateChannelsSection() {
-        val show = !match.isFinished && channelAdapter.itemCount > 0
+        val show = false   // broadcaster lookup turned off
         findViewById<View>(R.id.mdWatchTitle).visibility = if (show) View.VISIBLE else View.GONE
         findViewById<View>(R.id.mdChannels).visibility = if (show) View.VISIBLE else View.GONE
     }
@@ -198,13 +194,9 @@ class MatchActivity : BaseActivity() {
     }
 
     private fun showBroadcasters(list: List<String>) {
-        findViewById<TextView>(R.id.mdBroadcast).text =
-            if (list.isEmpty()) getString(R.string.md_no_broadcaster) else getString(R.string.md_broadcasters, list.joinToString("، "))
+        findViewById<TextView>(R.id.mdBroadcast).visibility = View.GONE
         // small technical line (source + broadcaster lookup) to diagnose a missing broadcaster from a photo
-        findViewById<TextView>(R.id.mdDiag).text = if (list.isEmpty())
-            "src: " + (if (match.source == "sofa") "Sofascore" else "ESPN (${Matches.lastSource})") +
-                (if (match.source == "sofa") " · " + com.multiview.tv.data.Sofa.lastTvDiag else "")
-        else ""
+        findViewById<TextView>(R.id.mdDiag).visibility = View.GONE
     }
 
     private fun addTableRow(parent: LinearLayout, pos: String, team: String, played: String, gd: String, pts: String, header: Boolean = false) {
