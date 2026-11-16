@@ -211,9 +211,9 @@ class VodActivity : BaseActivity() {
             currentGroup == G_CONTINUE -> continueItems.filter { match(it.title) }.map {
                 PosterItem(it.key, it.title, it.poster, getString(R.string.minutes_left, it.remainingMin))
             }
-            isMovies -> movies.asSequence().filter { match(it.name) }
+            isMovies -> movies.asSequence().distinctBy { it.id }.filter { match(it.name) }
                 .map { PosterItem(it.id, it.name, it.poster, it.rating?.let { r -> "★ $r" }) }.toList()
-            else -> seriesList.asSequence().filter { match(it.name) }
+            else -> seriesList.asSequence().distinctBy { it.id }.filter { match(it.name) }
                 .map { PosterItem(it.id, it.name, it.cover, it.rating?.let { r -> "★ $r" }) }.toList()
         }
         setLoading(false)

@@ -33,6 +33,11 @@
         </activity>
 
         <activity
+            android:name=".ui.MatchActivity"
+            android:exported="false"
+            android:screenOrientation="landscape" />
+
+        <activity
             android:name=".ui.HomeActivity"
             android:exported="false"
             android:screenOrientation="landscape" />

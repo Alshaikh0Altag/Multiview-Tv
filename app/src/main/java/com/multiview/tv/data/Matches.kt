@@ -29,6 +29,24 @@ data class Match(
     val isFinished get() = state == "post"
 }
 
+data class MatchEvent(
+    /** "goal", "own_goal", "penalty", "yellow", "red" */
+    val kind: String,
+    val minute: String,
+    val player: String,
+    val home: Boolean,
+)
+
+data class MatchStat(val label: String, val home: String, val away: String)
+
+data class MatchDetails(
+    val match: Match,
+    val venue: String?,
+    val events: List<MatchEvent>,
+    val stats: List<MatchStat>,
+    val broadcasters: List<String>,
+)
+
 /**
  * Today's football matches from ESPN's public scoreboard JSON
  * (site.api.espn.com/apis/site/v2/sports/soccer/{league}/scoreboard) — no key needed.
@@ -115,6 +133,101 @@ object Matches {
             )
         }
         return out
+    }
+
+    /** Goals, cards, stats, venue and broadcasters (ESPN "summary" for one event). */
+    suspend fun details(m: Match): MatchDetails = withContext(Dispatchers.IO) {
+        val json = JSONObject(Http.get("$BASE/${m.leagueCode}/summary?event=${m.id}", timeoutMs = 12_000))
+
+        // refreshed score / status
+        var match = m
+        var homeTeamId: String? = null
+        json.optJSONObject("header")?.optJSONArray("competitions")?.optJSONObject(0)?.let { comp ->
+            val status = comp.optJSONObject("status")?.optJSONObject("type")
+            var hs = m.home.score; var aws = m.away.score
+            var homeId: String? = null
+            comp.optJSONArray("competitors")?.let { cs ->
+                for (i in 0 until cs.length()) {
+                    val c = cs.getJSONObject(i)
+                    val score = c.optString("score").ifBlank { null }
+                    if (c.optString("homeAway") == "home") { hs = score ?: hs; homeId = c.optString("id") } else aws = score ?: aws
+                }
+            }
+            match = m.copy(
+                state = status?.optString("state") ?: m.state,
+                statusText = status?.optString("shortDetail") ?: m.statusText,
+                home = m.home.copy(score = hs), away = m.away.copy(score = aws),
+            )
+            homeTeamId = homeId
+        }
+        val homeId = homeTeamId
+
+        // goals and cards
+        val events = ArrayList<MatchEvent>()
+        json.optJSONArray("keyEvents")?.let { arr ->
+            for (i in 0 until arr.length()) {
+                val e = arr.getJSONObject(i)
+                val typeText = (e.optJSONObject("type")?.optString("text") ?: "").lowercase(Locale.ROOT)
+                val typeId = (e.optJSONObject("type")?.optString("type") ?: "").lowercase(Locale.ROOT)
+                val kind = when {
+                    "own goal" in typeText -> "own_goal"
+                    "penalty" in typeText && ("goal" in typeText || "scored" in typeText) -> "penalty"
+                    e.optBoolean("scoringPlay") || "goal" in typeText || typeId.startsWith("goal") -> "goal"
+                    "red" in typeText -> "red"
+                    "yellow" in typeText -> "yellow"
+                    else -> continue
+                }
+                if ("missed" in typeText || "saved" in typeText) continue
+                val minute = e.optJSONObject("clock")?.optString("displayValue") ?: ""
+                val player = e.optJSONArray("participants")?.optJSONObject(0)?.optJSONObject("athlete")
+                    ?.optString("displayName")?.ifBlank { null } ?: e.optString("shortText")
+                val teamId = e.optJSONObject("team")?.optString("id")
+                events += MatchEvent(kind, minute, player, home = teamId == null || teamId == homeId)
+            }
+        }
+
+        // a few key statistics
+        val wanted = linkedMapOf(
+            "possessionPct" to "الاستحواذ %", "totalShots" to "التسديدات", "shotsOnTarget" to "على المرمى",
+            "wonCorners" to "الركنيات", "foulsCommitted" to "الأخطاء", "offsides" to "التسلل",
+            "yellowCards" to "البطاقات الصفراء", "saves" to "التصديات",
+        )
+        val stats = ArrayList<MatchStat>()
+        json.optJSONObject("boxscore")?.optJSONArray("teams")?.let { teams ->
+            if (teams.length() == 2) {
+                fun statsOf(i: Int): Map<String, String> {
+                    val t = teams.getJSONObject(i)
+                    val out = HashMap<String, String>()
+                    val arr = t.optJSONArray("statistics") ?: return out
+                    for (k in 0 until arr.length()) {
+                        val s = arr.getJSONObject(k)
+                        out[s.optString("name")] = s.optString("displayValue")
+                    }
+                    return out
+                }
+                val firstIsHome = teams.getJSONObject(0).optJSONObject("team")?.optString("id") == homeId
+                val h = statsOf(if (firstIsHome) 0 else 1)
+                val a = statsOf(if (firstIsHome) 1 else 0)
+                wanted.forEach { (key, label) ->
+                    val hv = h[key]; val av = a[key]
+                    if (!hv.isNullOrBlank() && !av.isNullOrBlank()) stats += MatchStat(label, hv, av)
+                }
+            }
+        }
+
+        val venue = json.optJSONObject("gameInfo")?.optJSONObject("venue")?.let { v ->
+            listOfNotNull(v.optString("fullName").ifBlank { null },
+                v.optJSONObject("address")?.optString("city")?.ifBlank { null }).joinToString(" — ").ifBlank { null }
+        }
+
+        val broadcasters = LinkedHashSet<String>(m.broadcasts)
+        json.optJSONArray("broadcasts")?.let { b ->
+            for (i in 0 until b.length()) {
+                val o = b.getJSONObject(i)
+                (o.optJSONObject("media")?.optString("shortName") ?: o.optString("station")).takeIf { !it.isNullOrBlank() }?.let { broadcasters += it }
+            }
+        }
+        MatchDetails(match, venue, events, stats, broadcasters.toList())
     }
 
     /**

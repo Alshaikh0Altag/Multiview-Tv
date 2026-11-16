@@ -239,4 +239,15 @@
     <string name="newest_movies_in">أحدث %1$s</string>
     <string name="newest_series_in">أحدث %1$s</string>
     <string name="loading_short">جارِ التحميل…</string>
+    <string name="md_events">أحداث المباراة</string>
+    <string name="md_stats">الإحصائيات</string>
+    <string name="md_watch_on">شاهدها على قنوات اشتراكك</string>
+    <string name="md_no_details">لا تتوفر تفاصيل لهذه المباراة</string>
+    <string name="md_kickoff">موعد الانطلاق</string>
+    <string name="md_not_started">لم تبدأ المباراة بعد</string>
+    <string name="md_no_events">لا أهداف حتى الآن</string>
+    <string name="md_own_goal">في مرماه</string>
+    <string name="md_penalty">ركلة جزاء</string>
+    <string name="md_no_stats">تظهر الإحصائيات بعد بداية المباراة</string>
+    <string name="md_broadcasters">الناقل حسب ESPN: %1$s</string>
 </resources>

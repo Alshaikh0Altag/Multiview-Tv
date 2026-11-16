@@ -134,8 +134,12 @@ class HomeActivity : BaseActivity() {
             for (key in pinned) {
                 val cat = key.substring(2)
                 val cards: List<Card> = runCatching {
-                    if (key.startsWith("m:")) Repository.moviesIn(cat).sortedByDescending { it.added }.take(20).map { Card.MovieCard(it) }
-                    else Repository.seriesIn(cat).sortedByDescending { it.added }.take(20).map { Card.SeriesCard(it) }
+                    // providers often list the same title more than once (other id / quality) — show it once
+                    fun norm(n: String) = n.lowercase().replace(Regex("[^\\p{L}\\p{N}]"), "")
+                    if (key.startsWith("m:")) Repository.moviesIn(cat).sortedByDescending { it.added }
+                        .distinctBy { it.id }.distinctBy { norm(it.name) }.take(20).map { Card.MovieCard(it) }
+                    else Repository.seriesIn(cat).sortedByDescending { it.added }
+                        .distinctBy { it.id }.distinctBy { norm(it.name) }.take(20).map { Card.SeriesCard(it) }
                 }.getOrDefault(emptyList())
                 pinnedCards[key] = cards
                 pinnedLoading -= key
@@ -193,6 +197,9 @@ class HomeActivity : BaseActivity() {
         }
         if (rows.isEmpty()) rows += Row("empty", "", listOf(Card.Message(getString(R.string.home_empty))))
 
+        // Card keys must be unique inside a row (they are the list's stable ids)
+        for (i in rows.indices) rows[i] = rows[i].copy(cards = rows[i].cards.distinctBy { it.key })
+
         // Only touch the views when something changed, so the remote's focus stays put
         val sig = rows.joinToString("|") { r -> r.id + ":" + r.cards.joinToString(",") { it.key } }
         if (sig == signature) { rowAdapter.refreshContent(rows); return }
@@ -238,24 +245,9 @@ class HomeActivity : BaseActivity() {
         if (card is Card.ChannelCard) ChannelActions.show(this, card.c) { signature = ""; buildRows() }
     }
 
-    /** Lists the channels that may show the match (team / broadcaster names, then sports channels). */
     private fun openMatch(m: Match) {
-        val excluded = excludedCategories("l:")
-        val all = Repository.channelsIn(Repository.ALL_ID, emptySet(), excluded)
-        val candidates = Matches.candidateChannels(m, all, Repository.categories)
-        if (candidates.isEmpty()) {
-            Toast.makeText(this, R.string.match_no_channel, Toast.LENGTH_LONG).show()
-            startActivity(Intent(this, SearchActivity::class.java))
-            return
-        }
-        val title = "${m.home.shortName} × ${m.away.shortName}"
-        AlertDialog.Builder(this)
-            .setTitle(getString(R.string.match_pick_channel, title))
-            .setItems(candidates.map { it.name }.toTypedArray()) { _, i ->
-                val idx = all.indexOfFirst { it.id == candidates[i].id }
-                if (idx >= 0) openChannel(Repository.ALL_ID, idx)
-            }
-            .show()
+        MatchActivity.current = m
+        startActivity(Intent(this, MatchActivity::class.java))
     }
 
     private fun matchStatus(m: Match): String {
