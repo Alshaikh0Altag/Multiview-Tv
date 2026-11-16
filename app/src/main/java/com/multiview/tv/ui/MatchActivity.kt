@@ -127,9 +127,9 @@ class MatchActivity : BaseActivity() {
     }
 
     private fun showHeader(m: Match) {
-        findViewById<TextView>(R.id.mdLeague).text = m.league
-        findViewById<TextView>(R.id.mdHome).text = m.home.name
-        findViewById<TextView>(R.id.mdAway).text = m.away.name
+        findViewById<TextView>(R.id.mdLeague).text = m.league + if (m.round.isNotBlank()) " · ${m.round}" else ""
+        findViewById<TextView>(R.id.mdHome).text = seeded(m.home.name, m.seed1)
+        findViewById<TextView>(R.id.mdAway).text = seeded(m.away.name, m.seed2)
         findViewById<ImageView>(R.id.mdHomeLogo).load(m.home.logo) { addHeader("User-Agent", SofaHttp.UA) }
         findViewById<ImageView>(R.id.mdAwayLogo).load(m.away.logo) { addHeader("User-Agent", SofaHttp.UA) }
         val time = SimpleDateFormat(if (Settings.clock24h(this)) "HH:mm" else "h:mm a", Locale.US).format(Date(m.start))
@@ -160,6 +160,8 @@ class MatchActivity : BaseActivity() {
             d.match.sets.forEachIndexed { i, (h, a) ->
                 addLine(R.id.mdEvents, getString(R.string.md_set_n, i + 1) + "   $h - $a", bold = true)
             }
+            showTennis(d)
+            return
         } else if (d.events.isEmpty()) {
             addLine(R.id.mdEvents, getString(if (d.match.state == "pre") R.string.md_not_started else R.string.md_no_events))
         } else d.events.forEach { e ->
@@ -202,6 +204,96 @@ class MatchActivity : BaseActivity() {
         findViewById<TextView>(R.id.mdBroadcast).visibility = View.GONE
         // small technical line (source + broadcaster lookup) to diagnose a missing broadcaster from a photo
         findViewById<TextView>(R.id.mdDiag).visibility = View.GONE
+    }
+
+    // ---------- tennis: path through the tournament + draw by round ----------
+
+    private fun seeded(name: String, seed: Int) = if (seed > 0) "($seed) $name" else name
+
+    private fun setsText(m: Match) = m.sets.joinToString("  ") { "${it.first}-${it.second}" }
+
+    /** "Zverev ✓  6-4 6-4  Jodar" — winner marked, "not played yet" before it starts. */
+    private fun drawLine(m: Match): String {
+        val h = seeded(m.home.shortName, m.seed1) + if (m.winner == 1) " ✓" else ""
+        val a = seeded(m.away.shortName, m.seed2) + if (m.winner == 2) " ✓" else ""
+        val mid = when {
+            m.isLive -> "● " + setsText(m)
+            m.sets.isNotEmpty() -> setsText(m)
+            else -> getString(R.string.md_not_played)
+        }
+        return "$h   $mid   $a"
+    }
+
+    private fun showTennis(d: MatchDetails) {
+        val m = d.match
+        val all = d.tournament
+        // left: each player's earlier matches in this tournament
+        addLine(R.id.mdEvents, "")
+        addLine(R.id.mdEvents, getString(R.string.md_path), bold = true)
+        listOf(m.home to (m.seed1), m.away to (m.seed2)).forEach { (p, seed) ->
+            addLine(R.id.mdEvents, "▸ " + seeded(p.name, seed), bold = true)
+            val past = all.filter { it.id != m.id && it.start < m.start && (it.home.id == p.id || it.away.id == p.id) }
+            if (past.isEmpty()) addLine(R.id.mdEvents, "   " + getString(R.string.md_first_match))
+            past.forEach { x ->
+                val isHome = x.home.id == p.id
+                val opp = if (isHome) x.away else x.home
+                val oppSeed = if (isHome) x.seed2 else x.seed1
+                val won = (x.winner == 1 && isHome) || (x.winner == 2 && !isHome)
+                val verb = getString(when { x.winner == 0 -> R.string.md_vs; won -> R.string.md_beat; else -> R.string.md_lost_to })
+                val sets = x.sets.joinToString("  ") { if (isHome) "${it.first}-${it.second}" else "${it.second}-${it.first}" }
+                addLine(R.id.mdEvents, "   ${x.round} · $verb ${seeded(opp.shortName, oppSeed)}   $sets")
+            }
+        }
+
+        // right: the draw, round by round
+        findViewById<TextView>(R.id.mdStatsTitle).visibility = View.GONE
+        findViewById<LinearLayout>(R.id.mdStats).removeAllViews()
+        val title = findViewById<TextView>(R.id.mdTableTitle)
+        val box = findViewById<LinearLayout>(R.id.mdTable)
+        box.removeAllViews()
+        val full = findViewById<android.widget.Button>(R.id.mdFullTable)
+        if (all.isEmpty()) { title.visibility = View.GONE; full.visibility = View.GONE; return }
+        title.text = getString(R.string.md_draw)
+        title.visibility = View.VISIBLE
+        val rounds = all.groupBy { it.round }.toList().sortedBy { it.second.first().roundOrder }
+        var truncated = false
+        rounds.forEach { (name, list) ->
+            val short = list.size > 8 && list.none { it.id == m.id } || list.size > 16
+            if (short) {
+                truncated = true
+                addSmall(box, getString(R.string.md_round_count, name, list.size), header = true)
+                list.firstOrNull { it.id == m.id }?.let { addSmall(box, drawLine(it), highlight = true) }
+            } else {
+                addSmall(box, name, header = true)
+                list.forEach { addSmall(box, drawLine(it), highlight = it.id == m.id) }
+            }
+        }
+        full.text = getString(R.string.md_full_draw)
+        full.visibility = if (truncated) View.VISIBLE else View.GONE
+        full.setOnClickListener {
+            val dlg = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; setPadding(dp(20), dp(8), dp(20), dp(8)) }
+            rounds.forEach { (name, list) ->
+                addSmall(dlg, name, header = true)
+                list.forEach { addSmall(dlg, drawLine(it), highlight = it.id == m.id) }
+            }
+            val scroll = android.widget.ScrollView(this).apply { isFocusable = true; addView(dlg) }
+            androidx.appcompat.app.AlertDialog.Builder(this)
+                .setTitle(getString(R.string.md_draw) + " — " + m.league)
+                .setView(scroll)
+                .setPositiveButton(android.R.string.ok, null)
+                .showWrapped()
+        }
+    }
+
+    private fun addSmall(parent: LinearLayout, text: String, header: Boolean = false, highlight: Boolean = false) {
+        parent.addView(TextView(this).apply {
+            this.text = text
+            setTextColor(getColor(if (header) R.color.accent else R.color.text))
+            setTextSize(TypedValue.COMPLEX_UNIT_SP, if (header) 14f else 15f)
+            if (header) typeface = androidx.core.content.res.ResourcesCompat.getFont(this@MatchActivity, R.font.plex_medium)
+            setPadding(dp(6), dp(if (header) 10 else 3), dp(6), dp(3))
+            if (highlight) setBackgroundResource(R.drawable.bg_logo)
+        })
     }
 
     /** live table: ▲/▼ places moved since kick-off */

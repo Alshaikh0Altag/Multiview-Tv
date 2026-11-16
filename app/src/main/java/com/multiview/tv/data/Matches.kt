@@ -38,6 +38,15 @@ data class Match(
     val seasonId: Int = 0,
     /** tennis: games per set, home to away, e.g. [6 to 4, 3 to 2] */
     val sets: List<Pair<String, String>> = emptyList(),
+    /** tennis: ESPN tournament ("339-2026"), draw ("mens-singles"), round name and order */
+    val eventId: String = "",
+    val draw: String = "",
+    val round: String = "",
+    val roundOrder: Int = 0,
+    /** tennis: seeds (0 = unseeded) and the winner side (1 home, 2 away, 0 not decided) */
+    val seed1: Int = 0,
+    val seed2: Int = 0,
+    val winner: Int = 0,
 ) {
     val isLive get() = state == "in"
     val isFinished get() = state == "post"
@@ -80,6 +89,8 @@ data class MatchDetails(
     val standingsTitle: String? = null,
     /** the whole table (or group) the two teams play in */
     val fullTable: StandingTable? = null,
+    /** tennis: every singles match of the tournament so far, same draw */
+    val tournament: List<Match> = emptyList(),
 )
 
 /**
@@ -95,10 +106,10 @@ object Matches {
     @Volatile var lastSource = ""
 
     /** ESPN football in the chosen leagues, plus ATP/WTA tennis when [tennis]. */
-    suspend fun todayAll(leagues: Set<String>, tennis: Boolean, force: Boolean = false): List<Match> {
+    suspend fun todayAll(leagues: Set<String>, tours: Set<String>, force: Boolean = false): List<Match> {
         val football = today(leagues, force)
-        if (!tennis) return football
-        val t = runCatching { tennisToday() }.getOrDefault(emptyList())
+        if (tours.isEmpty()) return football
+        val t = runCatching { tennisToday(tours) }.getOrDefault(emptyList())
         return football + t
     }
 
@@ -205,11 +216,70 @@ object Matches {
 
     /** Match centre (tennis: what the scoreboard already gives). */
     suspend fun detailsAny(m: Match): MatchDetails =
-        if (m.sport == "tennis") MatchDetails(m, null, emptyList(), emptyList(), emptyList()) else details(m)
+        if (m.sport == "tennis") tennisDetails(m) else details(m)
+
+    private val tourCache = HashMap<String, Pair<Long, List<Match>>>()
+
+    /** The tennis match plus every match of its tournament (all match days, same draw). */
+    private suspend fun tennisDetails(m: Match): MatchDetails = withContext(Dispatchers.IO) {
+        val tour = m.leagueCode.removePrefix("tennis.")
+        val key = "$tour/${m.eventId}"
+        val cached = tourCache[key]?.takeIf { System.currentTimeMillis() - it.first < 3 * 60_000 }?.second
+        val all = cached ?: run {
+            val days = runCatching { tennisCalendar(tour, m) }.getOrDefault(emptyList())
+            val list = coroutineScope {
+                days.map { d -> async { runCatching { fetchTennis(tour, d) }.getOrDefault(emptyList()) } }.awaitAll().flatten()
+            }.distinctBy { it.id }
+            if (list.isNotEmpty()) tourCache[key] = System.currentTimeMillis() to list
+            list
+        }
+        val same = all.filter { it.eventId == m.eventId && it.draw == m.draw }
+        val fresh = same.firstOrNull { it.id == m.id } ?: m
+        MatchDetails(fresh, null, emptyList(), emptyList(), emptyList(),
+            tournament = same.sortedWith(compareBy<Match> { it.roundOrder }.thenBy { it.start }))
+    }
+
+    /** Match days of the tournament, from the scoreboard's calendar (up to today). */
+    private fun tennisCalendar(tour: String, m: Match): List<String> {
+        val utc = SimpleDateFormat("yyyyMMdd", Locale.US).apply { timeZone = TimeZone.getTimeZone("UTC") }
+        val json = JSONObject(Http.get("https://site.api.espn.com/apis/site/v2/sports/tennis/$tour/scoreboard?dates=${utc.format(Date(m.start))}", timeoutMs = 12_000))
+        val events = json.optJSONArray("events") ?: return emptyList()
+        val iso = SimpleDateFormat("yyyy-MM-dd'T'HH:mm'Z'", Locale.US).apply { timeZone = TimeZone.getTimeZone("UTC") }
+        val until = System.currentTimeMillis() + 36 * 3600_000L
+        for (i in 0 until events.length()) {
+            val ev = events.getJSONObject(i)
+            if (ev.optString("id") != m.eventId) continue
+            val cal = ev.optJSONArray("calendar") ?: break
+            val out = ArrayList<String>()
+            for (k in 0 until cal.length()) {
+                val t = runCatching { iso.parse(cal.optString(k))!!.time }.getOrNull() ?: continue
+                if (t <= until) out += utc.format(Date(t))
+            }
+            return out.distinct().takeLast(16)
+        }
+        return listOf(utc.format(Date(m.start)))
+    }
+
+    /** ESPN round names in Arabic; order follows the draw (first round … final). */
+    fun roundInfo(name: String): Pair<String, Int> {
+        val n = name.lowercase(Locale.ROOT)
+        return when {
+            "qualif" in n -> "التصفيات" to 0
+            "group" in n || "round robin" in n -> "دور المجموعات" to 10
+            n == "final" || n.startsWith("final") || n == "championship" -> "النهائي" to 90
+            "semi" in n -> "نصف النهائي" to 80
+            "quarter" in n -> "ربع النهائي" to 70
+            "round of 16" in n || "4th" in n || "fourth" in n -> "دور الـ16" to 60
+            "round of 32" in n || "3rd" in n || "third" in n -> "الدور الثالث" to 50
+            "round of 64" in n || "2nd" in n || "second" in n -> "الدور الثاني" to 40
+            "round of 128" in n || "1st" in n || "first" in n -> "الدور الأول" to 30
+            else -> name to 20
+        }
+    }
 
     // ---------- tennis (ESPN) ----------
 
-    private suspend fun tennisToday(): List<Match> = withContext(Dispatchers.IO) {
+    private suspend fun tennisToday(tours: Set<String>): List<Match> = withContext(Dispatchers.IO) {
         val utc = SimpleDateFormat("yyyyMMdd", Locale.US).apply { timeZone = TimeZone.getTimeZone("UTC") }
         val dayStart = java.util.Calendar.getInstance().apply {
             set(java.util.Calendar.HOUR_OF_DAY, 0); set(java.util.Calendar.MINUTE, 0)
@@ -218,7 +288,7 @@ object Matches {
         val dayEnd = dayStart + 24 * 3600_000L
         val dates = setOf(utc.format(Date(dayStart)), utc.format(Date(dayEnd - 1)))
         coroutineScope {
-            listOf("atp", "wta").flatMap { tour -> dates.map { d -> async { runCatching { fetchTennis(tour, d) }.getOrDefault(emptyList()) } } }
+            tours.flatMap { tour -> dates.map { d -> async { runCatching { fetchTennis(tour, d) }.getOrDefault(emptyList()) } } }
                 .awaitAll().flatten()
         }.distinctBy { it.id }.filter { it.start in dayStart until dayEnd || it.isLive }
     }
@@ -233,17 +303,20 @@ object Matches {
             val ev = events.getJSONObject(i)
             val tournament = ev.optString("name").ifBlank { ev.optString("shortName") }
             // matches sit in "groupings" (men's / women's singles, doubles…) or directly in "competitions"
-            val comps = ArrayList<JSONObject>()
+            val eventId = ev.optString("id")
+            val comps = ArrayList<Pair<JSONObject, String>>()
             ev.optJSONArray("groupings")?.let { g ->
                 for (k in 0 until g.length()) {
                     val grp = g.getJSONObject(k)
                     val slug = grp.optJSONObject("grouping")?.optString("slug").orEmpty()
                     if ("doubles" in slug) continue
-                    grp.optJSONArray("competitions")?.let { c -> for (j in 0 until c.length()) comps += c.getJSONObject(j) }
+                    grp.optJSONArray("competitions")?.let { c -> for (j in 0 until c.length()) comps += c.getJSONObject(j) to slug }
                 }
             }
-            ev.optJSONArray("competitions")?.let { c -> for (j in 0 until c.length()) comps += c.getJSONObject(j) }
-            for (c in comps) {
+            ev.optJSONArray("competitions")?.let { c -> for (j in 0 until c.length()) comps += c.getJSONObject(j) to "" }
+            for ((c, groupSlug) in comps) {
+                val slug = c.optJSONObject("type")?.optString("slug")?.ifBlank { null } ?: groupSlug
+                if ("doubles" in slug) continue
                 val players = c.optJSONArray("competitors") ?: continue
                 if (players.length() != 2) continue
                 fun player(o: JSONObject): Pair<Team, List<String>> {
@@ -252,8 +325,12 @@ object Matches {
                     val flag = a.optJSONObject("flag")?.optString("href")?.ifBlank { null }
                     val games = ArrayList<String>()
                     o.optJSONArray("linescores")?.let { ls -> for (s in 0 until ls.length()) games += ls.getJSONObject(s).optString("value").substringBefore('.') }
-                    return Team(name, a.optString("shortName").ifBlank { name }, flag, null) to games
+                    val pid = o.optString("id").ifBlank { a.optString("guid") }.ifBlank { name }
+                    return Team(name, a.optString("shortName").ifBlank { name }, flag, null, pid) to games
                 }
+                fun seed(o: JSONObject) = o.optJSONObject("curatedRank")?.optInt("current", 0)?.takeIf { it in 1..40 } ?: 0
+                val c0 = players.getJSONObject(0); val c1 = players.getJSONObject(1)
+                val (roundName, roundOrder) = roundInfo(c.optJSONObject("round")?.optString("displayName").orEmpty())
                 val (p1, g1) = player(players.getJSONObject(0))
                 val (p2, g2) = player(players.getJSONObject(1))
                 if (p1.name.isBlank() || p2.name.isBlank()) continue
@@ -271,6 +348,9 @@ object Matches {
                     broadcasts = emptyList(),
                     sport = "tennis",
                     sets = g1.indices.filter { it < g2.size }.map { g1[it] to g2[it] },
+                    eventId = eventId, draw = slug, round = roundName, roundOrder = roundOrder,
+                    seed1 = seed(c0), seed2 = seed(c1),
+                    winner = when { c0.optBoolean("winner") -> 1; c1.optBoolean("winner") -> 2; else -> 0 },
                 )
             }
         }

@@ -26,6 +26,7 @@ import kotlinx.coroutines.launch
 
 /** One search box for channels, movies and series. */
 class SearchActivity : BaseActivity() {
+    companion object { const val EXTRA_QUERY = "query" }
 
     private sealed class Result(val key: String, val title: String, val image: String?) {
         class Live(val c: Channel) : Result("l:${c.id}", c.name, c.logo)
@@ -56,6 +57,7 @@ class SearchActivity : BaseActivity() {
             override fun afterTextChanged(s: Editable?) = schedule()
         })
         input.requestFocus()
+        intent.getStringExtra(EXTRA_QUERY)?.let { input.setText(it); input.setSelection(it.length) }
 
         // Movies and series libraries load in the background while you type
         if (Repository.supportsVod) {

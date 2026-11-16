@@ -139,7 +139,7 @@
     <string name="type_series">مسلسل</string>
     <string name="recent_channels">شوهدت مؤخراً</string>
     <string name="panel_hint">OK: تشغيل  ·  ◀ المجموعات  ·  ضغط مطوّل: خيارات القناة  ·  رجوع: إغلاق</string>
-    <string name="player_hint">OK: ضبط المشغّل  ·  ◀ قائمة القنوات  ·  ▶ معلومات القناة  ·  ▲▼ أو الأرقام: تغيير القناة</string>
+    <string name="player_hint">OK أو ◀: قائمة القنوات  ·  OK مطوّل: خيارات القناة  ·  ▶ معلومات القناة ثم OK: ضبط المشغّل  ·  Menu: ضبط المشغّل  ·  ▲▼: تغيير القناة</string>
     <string name="menu_sleep">مؤقت النوم</string>
     <string name="minutes_n">%1$d دقيقة</string>
     <string name="sleep_set">سيُغلق التطبيق بعد %1$d دقيقة</string>
@@ -261,7 +261,8 @@
     <string name="remove_continue">حذف من متابعة المشاهدة</string>
     <string name="today_tennis">تنس اليوم</string>
     <string name="starts_in_min">بعد %1$d د</string>
-    <string name="set_tennis">مباريات التنس (ATP و WTA): %1$s</string>
+    <string name="set_tennis_atp">تنس الرجال (ATP): %1$s</string>
+    <string name="set_tennis_wta">تنس السيدات (WTA): %1$s</string>
     <string name="md_starts_in">تبدأ بعد</string>
     <string name="md_referee">الحكم: %1$s</string>
     <string name="md_table">الترتيب</string>
@@ -275,4 +276,25 @@
     <string name="vsort_rating">⇅ الأعلى تقييماً</string>
     <string name="vsort_name">⇅ أبجدياً</string>
     <string name="md_live_table">مباشر</string>
+    <string name="md_path">مشوار البطولة</string>
+    <string name="md_draw">خريطة الأدوار</string>
+    <string name="md_full_draw">عرض الخريطة كاملة</string>
+    <string name="md_first_match">أول مباراة له في البطولة</string>
+    <string name="md_not_played">لم تُلعب بعد</string>
+    <string name="md_round_count">%1$s: %2$d مباراة</string>
+    <string name="md_beat">فاز على</string>
+    <string name="md_lost_to">خسر أمام</string>
+    <string name="md_vs">ضد</string>
+    <string name="reminder_on">🔔 نبّهني قبل البداية بـ5 دقائق</string>
+    <string name="reminder_off">🔕 إلغاء التنبيه</string>
+    <string name="reminder_set">سيظهر لك تنبيه قبل البداية بـ5 دقائق</string>
+    <string name="reminder_removed">أُلغي التنبيه</string>
+    <string name="reminder_title">🔔 تنبيه مباراة</string>
+    <string name="reminder_msg">%1$s تبدأ بعد %2$d دقيقة\n%3$s</string>
+    <string name="reminder_msg_now">%1$s بدأت الآن\n%2$s</string>
+    <string name="reminder_channel">اختيار القناة</string>
+    <string name="reminder_details">تفاصيل المباراة</string>
+    <string name="reminder_dismiss">إغلاق</string>
+    <string name="match_details">تفاصيل المباراة</string>
+    <string name="matches_options">عرض وترتيب المباريات</string>
 </resources>

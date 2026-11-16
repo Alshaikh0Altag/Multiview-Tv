@@ -60,7 +60,9 @@ class PlayerActivity : BaseActivity() {
     private var previousIndex = -1
     private var digits = ""
     private val handler = Handler(Looper.getMainLooper())
-    private val hideOverlay = Runnable { overlay.visibility = View.GONE }
+    private val hideOverlay = Runnable { overlay.visibility = View.GONE; infoByRight = false }
+    /** the info bar was opened with ▶ — OK then opens the player settings */
+    private var infoByRight = false
     // ---- smart reconnect ----
     private var errorCount = 0
     private var currentUrl = ""
@@ -374,12 +376,14 @@ class PlayerActivity : BaseActivity() {
             KeyEvent.KEYCODE_DPAD_DOWN -> { tune(if (Settings.reverseArrows(this)) index + 1 else index - 1); return true }
             KeyEvent.KEYCODE_LAST_CHANNEL -> { if (previousIndex >= 0) tune(previousIndex); return true }
             KeyEvent.KEYCODE_DPAD_CENTER, KeyEvent.KEYCODE_ENTER -> {
-                event.startTracking()   // short press: player menu, long press: channel list
+                event.startTracking()   // short press: channel list, long press: channel options
                 return true
             }
             KeyEvent.KEYCODE_DPAD_LEFT -> { openPanel(); return true }          // ◀ channel list (◀ again: groups)
-            KeyEvent.KEYCODE_DPAD_RIGHT -> {                                     // ▶ channel info
-                if (overlay.visibility == View.VISIBLE) overlay.visibility = View.GONE else showOverlay(); return true
+            KeyEvent.KEYCODE_DPAD_RIGHT -> {                                     // ▶ channel info (then OK: player settings)
+                if (overlay.visibility == View.VISIBLE && infoByRight) { overlay.visibility = View.GONE; infoByRight = false }
+                else { showOverlay(); infoByRight = true }
+                return true
             }
             KeyEvent.KEYCODE_MENU, KeyEvent.KEYCODE_SETTINGS -> { openMenu(); return true }
             KeyEvent.KEYCODE_INFO -> { if (overlay.visibility == View.VISIBLE) overlay.visibility = View.GONE else showOverlay(); return true }
@@ -389,14 +393,20 @@ class PlayerActivity : BaseActivity() {
 
     override fun onKeyLongPress(keyCode: Int, event: KeyEvent): Boolean {
         if (panelVisible) return super.onKeyLongPress(keyCode, event)
-        if (keyCode == KeyEvent.KEYCODE_DPAD_CENTER || keyCode == KeyEvent.KEYCODE_ENTER) { openPanel(); return true }
+        if (keyCode == KeyEvent.KEYCODE_DPAD_CENTER || keyCode == KeyEvent.KEYCODE_ENTER) {
+            list.getOrNull(index)?.let { ChannelActions.show(this, it) }
+            return true
+        }
         return super.onKeyLongPress(keyCode, event)
     }
 
     override fun onKeyUp(keyCode: Int, event: KeyEvent): Boolean {
         if (panelVisible) return super.onKeyUp(keyCode, event)
         if ((keyCode == KeyEvent.KEYCODE_DPAD_CENTER || keyCode == KeyEvent.KEYCODE_ENTER) && !event.isCanceled) {
-            if (event.flags and KeyEvent.FLAG_CANCELED_LONG_PRESS == 0 && !panelVisible) openMenu()
+            if (event.flags and KeyEvent.FLAG_CANCELED_LONG_PRESS == 0 && !panelVisible) {
+                if (infoByRight && overlay.visibility == View.VISIBLE) { infoByRight = false; overlay.visibility = View.GONE; openMenu() }
+                else openPanel()
+            }
             return true
         }
         return super.onKeyUp(keyCode, event)

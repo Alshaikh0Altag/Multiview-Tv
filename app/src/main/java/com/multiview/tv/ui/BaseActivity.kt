@@ -41,6 +41,36 @@ open class BaseActivity : AppCompatActivity() {
         private var top: java.lang.ref.WeakReference<BaseActivity>? = null
         /** Closes the whole app from whichever screen is open when the timer ends. */
         private val sleepRunnable = Runnable { top?.get()?.finishAffinity() }
+
+        /** Match reminders: checked every 20 s on whichever screen is open. */
+        private val reminderCheck = object : Runnable {
+            override fun run() {
+                top?.get()?.let { a -> if (!a.isFinishing) a.showDueReminders() }
+                sleepHandler.postDelayed(this, 20_000)
+            }
+        }
+        private var remindersStarted = false
+    }
+
+    private fun showDueReminders() {
+        val due = com.multiview.tv.data.Reminders.takeDue(this)
+        due.forEach { m ->
+            val left = ((m.start - System.currentTimeMillis()) / 60_000).coerceAtLeast(0)
+            val title = "${m.home.name} × ${m.away.name}"
+            androidx.appcompat.app.AlertDialog.Builder(this)
+                .setTitle(getString(R.string.reminder_title))
+                .setMessage(if (left > 0) getString(R.string.reminder_msg, title, left.toInt(), m.league)
+                    else getString(R.string.reminder_msg_now, title, m.league))
+                .setPositiveButton(R.string.reminder_channel) { _, _ ->
+                    startActivity(Intent(this, SearchActivity::class.java).putExtra(SearchActivity.EXTRA_QUERY, m.home.shortName))
+                }
+                .setNeutralButton(R.string.reminder_details) { _, _ ->
+                    MatchActivity.current = m
+                    startActivity(Intent(this, MatchActivity::class.java))
+                }
+                .setNegativeButton(R.string.reminder_dismiss, null)
+                .show()
+        }
     }
 
     private var clock: TextClock? = null
@@ -156,6 +186,7 @@ open class BaseActivity : AppCompatActivity() {
         super.onResume()
         top = java.lang.ref.WeakReference(this)
         applyClock()
+        if (!remindersStarted) { remindersStarted = true; sleepHandler.postDelayed(reminderCheck, 3_000) }
     }
 
     /** Re-reads clock settings (called again after the Settings screen closes). */

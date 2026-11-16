@@ -120,7 +120,7 @@ class HomeActivity : BaseActivity() {
     private fun loadMatches(force: Boolean) {
         lifecycleScope.launch {
             matches = runCatching {
-                Matches.todayAll(Settings.leagues(this@HomeActivity), Settings.tennisEnabled(this@HomeActivity), force)
+                Matches.todayAll(Settings.leagues(this@HomeActivity), Settings.tennisTours(this@HomeActivity), force)
             }.getOrDefault(emptyList())
             buildRows()
         }
@@ -253,13 +253,32 @@ class HomeActivity : BaseActivity() {
     private fun onCardLong(card: Card) {
         when (card) {
             is Card.ChannelCard -> ChannelActions.show(this, card.c) { signature = ""; buildRows() }
-            is Card.MatchCard, is Card.Message -> matchesMenu()
+            is Card.MatchCard -> matchMenu(card.m)
+            is Card.Message -> matchesMenu()
             is Card.ContinueCard -> ContinueActions.show(this, card.item) { buildRows() }
             else -> Unit
         }
     }
 
     /** Long-press a match: show all / live only / not finished, ordered by time or importance. */
+    /** Long press on a match: reminder + the row's filter / sort options. */
+    private fun matchMenu(m: Match) {
+        val canRemind = !m.isLive && !m.isFinished && m.start > System.currentTimeMillis()
+        val on = com.multiview.tv.data.Reminders.has(this, m.id)
+        val items = ArrayList<Pair<String, () -> Unit>>()
+        if (canRemind || on) items += getString(if (on) R.string.reminder_off else R.string.reminder_on) to {
+            val nowOn = com.multiview.tv.data.Reminders.toggle(this, m)
+            android.widget.Toast.makeText(this, if (nowOn) R.string.reminder_set else R.string.reminder_removed, android.widget.Toast.LENGTH_SHORT).show()
+            buildRows()
+        }
+        items += getString(R.string.match_details) to { openMatch(m) }
+        items += getString(R.string.matches_options) to { matchesMenu() }
+        AlertDialog.Builder(this)
+            .setTitle("${m.home.name} × ${m.away.name}")
+            .setItems(items.map { it.first }.toTypedArray()) { _, i -> items[i].second() }
+            .showWrapped()
+    }
+
     private fun matchesMenu() {
         val modes = listOf("all", "live", "upcoming")
         val sorts = listOf("importance", "time")
@@ -430,7 +449,7 @@ class HomeActivity : BaseActivity() {
         private fun bindMatch(v: View, m: Match) {
             v.findViewById<TextView>(R.id.mLeague).text = m.league
             val st = v.findViewById<TextView>(R.id.mStatus)
-            st.text = matchStatus(m)
+            st.text = (if (com.multiview.tv.data.Reminders.has(this@HomeActivity, m.id)) "🔔 " else "") + matchStatus(m)
             st.setBackgroundResource(if (m.isLive) R.drawable.bg_badge_live else 0)
             v.findViewById<TextView>(R.id.mHome).text = m.home.name
             v.findViewById<TextView>(R.id.mAway).text = m.away.name

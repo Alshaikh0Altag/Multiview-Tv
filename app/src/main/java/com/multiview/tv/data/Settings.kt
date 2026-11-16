@@ -186,8 +186,11 @@ object Settings {
     fun setMatchesSort(c: Context, v: String) = sp(c).edit().putString("matches_sort", v).apply()
 
 
-    fun tennisEnabled(c: Context) = sp(c).getBoolean("tennis", true)
-    fun setTennisEnabled(c: Context, v: Boolean) = sp(c).edit().putBoolean("tennis", v).apply()
+    /** ATP (men) and WTA (women) can be switched on and off separately. */
+    fun tennisTour(c: Context, tour: String) = sp(c).getBoolean("tennis_$tour", sp(c).getBoolean("tennis", true))
+    fun setTennisTour(c: Context, tour: String, v: Boolean) = sp(c).edit().putBoolean("tennis_$tour", v).apply()
+    fun tennisTours(c: Context): Set<String> = listOf("atp", "wta").filter { tennisTour(c, it) }.toSet()
+    fun tennisEnabled(c: Context) = tennisTours(c).isNotEmpty()
 
     /** Movies / series order: "new" (default), "rating", "name" */
     fun vodSort(c: Context) = sp(c).getString("vod_sort", "new")!!

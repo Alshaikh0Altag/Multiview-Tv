@@ -49,8 +49,11 @@ class SettingsActivity : BaseActivity() {
         header(R.string.set_section_home)
         row({ getString(R.string.set_home_rows) }) { homeRows() }
         row({ getString(R.string.set_leagues) }) { leagues() }
-        row({ getString(R.string.set_tennis, onOff(Settings.tennisEnabled(this))) }) {
-            Settings.setTennisEnabled(this, !Settings.tennisEnabled(this))
+        row({ getString(R.string.set_tennis_atp, onOff(Settings.tennisTour(this, "atp"))) }) {
+            Settings.setTennisTour(this, "atp", !Settings.tennisTour(this, "atp"))
+        }
+        row({ getString(R.string.set_tennis_wta, onOff(Settings.tennisTour(this, "wta"))) }) {
+            Settings.setTennisTour(this, "wta", !Settings.tennisTour(this, "wta"))
         }
 
         header(R.string.set_section_clock)
