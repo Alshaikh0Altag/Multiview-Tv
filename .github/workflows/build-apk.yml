@@ -32,8 +32,8 @@ jobs:
           KS: ${{ secrets.SIGNING_KEYSTORE_B64 }}
         run: |
           if [ -n "$KS" ]; then
-            mkdir -p ~/.android
-            echo "$KS" | base64 -d > ~/.android/debug.keystore
+            echo "$KS" | base64 -d > "$RUNNER_TEMP/signing.keystore"
+            echo "SIGNING_KEYSTORE=$RUNNER_TEMP/signing.keystore" >> "$GITHUB_ENV"
             echo "Using the fixed signing key"
           else
             echo "::warning::SIGNING_KEYSTORE_B64 secret is missing — this build gets a random key and cannot update older installs"

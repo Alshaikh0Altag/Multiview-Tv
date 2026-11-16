@@ -17,7 +17,23 @@ android {
         versionName = "1.$run"
     }
 
+    // Fixed signing key from CI (secret SIGNING_KEYSTORE_B64) so in-app updates install over older builds
+    val ciKeystore = System.getenv("SIGNING_KEYSTORE")?.let { file(it) }?.takeIf { it.exists() }
+    signingConfigs {
+        if (ciKeystore != null) {
+            create("fixed") {
+                storeFile = ciKeystore
+                storePassword = "android"
+                keyAlias = "androiddebugkey"
+                keyPassword = "android"
+            }
+        }
+    }
+
     buildTypes {
+        debug {
+            signingConfigs.findByName("fixed")?.let { signingConfig = it }
+        }
         release {
             isMinifyEnabled = false
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
