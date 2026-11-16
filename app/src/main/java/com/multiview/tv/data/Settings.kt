@@ -17,6 +17,17 @@ object Settings {
     fun clock24h(c: Context) = sp(c).getBoolean("clock_24", true)
     fun setClock24h(c: Context, v: Boolean) = sp(c).edit().putBoolean("clock_24", v).apply()
 
+    /** Clock look: "box" (dark background) or "plain" (text only, with a soft shadow) */
+    fun clockStyle(c: Context) = sp(c).getString("clock_style", "box")!!
+    fun setClockStyle(c: Context, v: String) = sp(c).edit().putString("clock_style", v).apply()
+    /** Clock text size in sp: 16 / 20 / 26 */
+    fun clockSize(c: Context) = sp(c).getInt("clock_size", 20)
+    fun setClockSize(c: Context, v: Int) = sp(c).edit().putInt("clock_size", v).apply()
+
+    /** false: ▲ = next channel (default). true: ▲ = previous channel. */
+    fun reverseArrows(c: Context) = sp(c).getBoolean("rev_arrows", false)
+    fun setReverseArrows(c: Context, v: Boolean) = sp(c).edit().putBoolean("rev_arrows", v).apply()
+
     /** clock opacity in percent: 100 / 75 / 50 / 25 */
     fun clockOpacity(c: Context) = sp(c).getInt("clock_alpha", 100)
     fun setClockOpacity(c: Context, v: Int) = sp(c).edit().putInt("clock_alpha", v).apply()

@@ -320,8 +320,11 @@ class PlayerActivity : BaseActivity() {
         if (keyCode in KeyEvent.KEYCODE_0..KeyEvent.KEYCODE_9) { onDigit(keyCode - KeyEvent.KEYCODE_0); return true }
         if (keyCode in KeyEvent.KEYCODE_NUMPAD_0..KeyEvent.KEYCODE_NUMPAD_9) { onDigit(keyCode - KeyEvent.KEYCODE_NUMPAD_0); return true }
         when (keyCode) {
-            KeyEvent.KEYCODE_DPAD_UP, KeyEvent.KEYCODE_CHANNEL_UP -> { tune(index - 1); return true }
-            KeyEvent.KEYCODE_DPAD_DOWN, KeyEvent.KEYCODE_CHANNEL_DOWN -> { tune(index + 1); return true }
+            // CH+ always goes to the next channel; the arrows follow the user's setting
+            KeyEvent.KEYCODE_CHANNEL_UP -> { tune(index + 1); return true }
+            KeyEvent.KEYCODE_CHANNEL_DOWN -> { tune(index - 1); return true }
+            KeyEvent.KEYCODE_DPAD_UP -> { tune(if (Settings.reverseArrows(this)) index - 1 else index + 1); return true }
+            KeyEvent.KEYCODE_DPAD_DOWN -> { tune(if (Settings.reverseArrows(this)) index + 1 else index - 1); return true }
             KeyEvent.KEYCODE_LAST_CHANNEL -> { if (previousIndex >= 0) tune(previousIndex); return true }
             KeyEvent.KEYCODE_DPAD_CENTER, KeyEvent.KEYCODE_ENTER -> {
                 event.startTracking()   // so a long press can open the menu

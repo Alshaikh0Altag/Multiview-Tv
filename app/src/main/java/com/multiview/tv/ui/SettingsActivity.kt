@@ -52,6 +52,14 @@ class SettingsActivity : BaseActivity() {
         row({ getString(R.string.set_clock_pos, getString(if (Settings.clockPosition(this) == "left") R.string.left else R.string.right)) }) {
             Settings.setClockPosition(this, if (Settings.clockPosition(this) == "left") "right" else "left"); applyClock()
         }
+        row({ getString(R.string.set_clock_style, getString(if (Settings.clockStyle(this) == "plain") R.string.clock_plain else R.string.clock_box)) }) {
+            Settings.setClockStyle(this, if (Settings.clockStyle(this) == "plain") "box" else "plain"); applyClock()
+        }
+        row({ getString(R.string.set_clock_size, getString(when (Settings.clockSize(this)) {
+            16 -> R.string.size_small; 26 -> R.string.size_large; else -> R.string.size_medium })) }) {
+            val steps = listOf(16, 20, 26)
+            Settings.setClockSize(this, steps[(steps.indexOf(Settings.clockSize(this)) + 1).mod(steps.size)]); applyClock()
+        }
         row({ getString(R.string.set_clock_opacity, 100 - Settings.clockOpacity(this)) }) {
             val steps = listOf(100, 75, 50, 25)
             val next = steps[(steps.indexOf(Settings.clockOpacity(this)) + 1).mod(steps.size)]
@@ -66,6 +74,9 @@ class SettingsActivity : BaseActivity() {
         row({ getString(R.string.set_live_format, if (Settings.liveFormat(this) == "m3u8") "HLS (m3u8)" else "MPEG-TS") }) {
             Settings.setLiveFormat(this, if (Settings.liveFormat(this) == "m3u8") "ts" else "m3u8")
             switchTo(Prefs.activeIndex(this))   // reload channels with the new format
+        }
+        row({ getString(R.string.set_arrows, getString(if (Settings.reverseArrows(this)) R.string.arrows_reversed else R.string.arrows_normal)) }) {
+            Settings.setReverseArrows(this, !Settings.reverseArrows(this))
         }
         row({ getString(R.string.set_buffer, getString(when (Settings.bufferSize(this)) {
             "small" -> R.string.buffer_small; "large" -> R.string.buffer_large; else -> R.string.buffer_normal })) }) {

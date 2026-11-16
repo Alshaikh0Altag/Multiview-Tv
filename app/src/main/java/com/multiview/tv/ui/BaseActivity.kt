@@ -111,6 +111,17 @@ open class BaseActivity : AppCompatActivity() {
         val enabled = Settings.clockEnabled(this) && !isInPictureInPictureModeCompat()
         c.visibility = if (enabled) View.VISIBLE else View.GONE
         c.alpha = Settings.clockOpacity(this) / 100f
+        c.setTextSize(TypedValue.COMPLEX_UNIT_SP, Settings.clockSize(this).toFloat())
+        val pad = (12 * resources.displayMetrics.density).toInt()
+        if (Settings.clockStyle(this) == "plain") {
+            c.background = null
+            c.setPadding(0, 0, 0, 0)
+            c.setShadowLayer(8f, 0f, 2f, android.graphics.Color.BLACK)   // readable on bright pictures
+        } else {
+            c.setBackgroundResource(R.drawable.bg_label)
+            c.setPadding(pad, pad / 3, pad, pad / 3)
+            c.setShadowLayer(0f, 0f, 0f, 0)
+        }
         // TextClock follows the system 12/24h setting; force the user's choice
         val fmt = if (Settings.clock24h(this)) "HH:mm" else "hh:mm a"
         c.format12Hour = fmt
